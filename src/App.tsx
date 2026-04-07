@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   LayoutDashboard, 
   Users, 
@@ -11,7 +11,7 @@ import {
   Calendar, 
   FileText, 
   ShieldCheck, 
-  Settings, 
+  Settings as SettingsIcon, 
   LogOut, 
   Search, 
   Plus, 
@@ -68,7 +68,7 @@ import { Auth } from './components/Auth';
 import Markdown from 'react-markdown';
 
 // --- Types ---
-type Page = 'dashboard' | 'patients' | 'records' | 'appointments' | 'reports' | 'diagnosis-ref' | 'security' | 'billing' | 'education';
+type Page = 'dashboard' | 'patients' | 'records' | 'appointments' | 'reports' | 'diagnosis-ref' | 'security' | 'billing' | 'education' | 'settings';
 
 interface User {
   name: string;
@@ -84,8 +84,25 @@ interface Patient {
   gender: 'L' | 'P';
   address: string;
   phone: string;
-  insurance: string;
+  insurance: string; // Used for "Jenis Pembayaran"
   status: 'active' | 'inactive';
+  // New fields from PDF
+  religion?: string;
+  birthPlace?: string;
+  occupation?: string;
+  nationality?: string;
+  bloodType?: string;
+  maritalStatus?: string;
+  dependents?: {
+    children: number;
+    others: number;
+  };
+  tribe?: string;
+  weight?: string;
+  height?: string;
+  examiningDentist?: string;
+  examiningTherapist?: string;
+  referralSource?: string;
 }
 
 interface Appointment {
@@ -99,9 +116,9 @@ interface Appointment {
 
 // --- Mock Data ---
 const MOCK_PATIENTS: Patient[] = [
-  { id: '1', name: 'Ahmad Subarjo', nik: '3201012345678901', mrNumber: 'RM-001', birthDate: '1985-05-12', gender: 'L', address: 'Jl. Merdeka No. 10', phone: '08123456789', insurance: 'BPJS', status: 'active' },
-  { id: '2', name: 'Siti Aminah', nik: '3201012345678902', mrNumber: 'RM-002', birthDate: '1992-08-24', gender: 'P', address: 'Jl. Mawar No. 5', phone: '08129876543', insurance: 'Mandiri Inhealth', status: 'active' },
-  { id: '3', name: 'Budi Santoso', nik: '3201012345678903', mrNumber: 'RM-003', birthDate: '1978-11-02', gender: 'L', address: 'Jl. Melati No. 15', phone: '08131122334', insurance: 'Umum', status: 'active' },
+  { id: '1', name: 'Ahmad Subarjo', nik: '3201012345678901', mrNumber: 'RM-001', birthDate: '1985-05-12', gender: 'L', address: 'Jl. Merdeka No. 10', phone: '08123456789', insurance: 'BPJS', status: 'active', examiningDentist: 'Drg. Rizky Ramadhan', examiningTherapist: 'Dewi Sri Rahmawati' },
+  { id: '2', name: 'Siti Aminah', nik: '3201012345678902', mrNumber: 'RM-002', birthDate: '1992-08-24', gender: 'P', address: 'Jl. Mawar No. 5', phone: '08129876543', insurance: 'Mandiri Inhealth', status: 'active', examiningDentist: 'Drg. Rizky Ramadhan', examiningTherapist: 'Dewi Sri Rahmawati' },
+  { id: '3', name: 'Budi Santoso', nik: '3201012345678903', mrNumber: 'RM-003', birthDate: '1978-11-02', gender: 'L', address: 'Jl. Melati No. 15', phone: '08131122334', insurance: 'UMUM', status: 'active', examiningDentist: 'Drg. Rizky Ramadhan', examiningTherapist: 'Dewi Sri Rahmawati' },
 ];
 
 const DASHBOARD_STATS = [
@@ -387,7 +404,92 @@ const Security = ({ onSave }: { onSave: () => void }) => (
   </div>
 );
 
-const Dashboard = ({ onNavigate }: { onNavigate: (page: Page) => void }) => (
+const Settings = ({ onSave }: { onSave: () => void }) => (
+  <div className="space-y-8">
+    <div className="flex items-center justify-between">
+      <div>
+        <h2 className="text-2xl font-bold text-slate-900">Pengaturan Aplikasi</h2>
+        <p className="text-slate-500">Kelola preferensi dan konfigurasi sistem</p>
+      </div>
+      <button 
+        onClick={onSave}
+        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
+      >
+        <SettingsIcon size={16} />
+        Simpan Pengaturan
+      </button>
+    </div>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+        <h3 className="text-lg font-bold text-slate-900 border-b pb-4">Profil Klinik</h3>
+        
+        <div>
+          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nama Klinik</label>
+          <input type="text" defaultValue="DentaCare RME" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Alamat</label>
+          <textarea defaultValue="Jl. Kesehatan No. 123, Jakarta Selatan" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[80px]" />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Telepon</label>
+          <input type="text" defaultValue="(021) 1234-5678" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+        </div>
+      </div>
+
+      <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+        <h3 className="text-lg font-bold text-slate-900 border-b pb-4">Preferensi Sistem</h3>
+        
+        <div className="space-y-4">
+          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
+            <div>
+              <span className="text-sm font-bold text-slate-700 block">Notifikasi Email</span>
+              <span className="text-[10px] text-slate-500">Kirim pengingat jadwal ke pasien</span>
+            </div>
+            <div className="w-10 h-5 bg-blue-600 rounded-full relative cursor-pointer">
+              <div className="absolute right-1 top-1 w-3 h-3 bg-white rounded-full shadow-sm" />
+            </div>
+          </div>
+          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
+            <div>
+              <span className="text-sm font-bold text-slate-700 block">Backup Otomatis</span>
+              <span className="text-[10px] text-slate-500">Backup data setiap hari jam 00:00</span>
+            </div>
+            <div className="w-10 h-5 bg-blue-600 rounded-full relative cursor-pointer">
+              <div className="absolute right-1 top-1 w-3 h-3 bg-white rounded-full shadow-sm" />
+            </div>
+          </div>
+          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
+            <div>
+              <span className="text-sm font-bold text-slate-700 block">Mode Gelap</span>
+              <span className="text-[10px] text-slate-500">Tema tampilan aplikasi</span>
+            </div>
+            <div className="w-10 h-5 bg-slate-300 rounded-full relative cursor-pointer">
+              <div className="absolute left-1 top-1 w-3 h-3 bg-white rounded-full shadow-sm" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+const Dashboard = ({ onNavigate, patients, appointments, invoices }: { onNavigate: (page: Page) => void, patients: Patient[], appointments: Appointment[], invoices: Invoice[] }) => {
+  const today = new Date().toISOString().split('T')[0];
+  const todayAppointments = appointments.filter(apt => apt.date === today).length;
+  
+  // Calculate revenue
+  const totalRevenue = invoices.filter(inv => inv.status === 'paid').reduce((acc, curr) => acc + curr.amount, 0);
+
+  const DASHBOARD_STATS = [
+    { label: 'Total Pasien', value: patients.length.toString(), icon: Users, color: 'bg-blue-500' },
+    { label: 'Kunjungan Hari Ini', value: todayAppointments.toString(), icon: Calendar, color: 'bg-emerald-500' },
+    { label: 'Total Pendapatan', value: `Rp ${(totalRevenue / 1000000).toFixed(1)}M`, icon: Activity, color: 'bg-amber-500' },
+    { label: 'Tagihan Tertunda', value: invoices.filter(inv => inv.status === 'unpaid').length.toString(), icon: CheckCircle2, color: 'bg-purple-500' },
+  ];
+
+  return (
   <div className="space-y-8">
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       {DASHBOARD_STATS.map((stat, i) => (
@@ -402,7 +504,6 @@ const Dashboard = ({ onNavigate }: { onNavigate: (page: Page) => void }) => (
             <div className={cn("p-3 rounded-xl text-white", stat.color)}>
               <stat.icon size={24} />
             </div>
-            <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">+12%</span>
           </div>
           <h3 className="text-slate-500 text-sm font-medium">{stat.label}</h3>
           <p className="text-2xl font-bold text-slate-900 mt-1">{stat.value}</p>
@@ -430,22 +531,33 @@ const Dashboard = ({ onNavigate }: { onNavigate: (page: Page) => void }) => (
       </div>
 
       <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-        <h3 className="text-lg font-bold text-slate-900 mb-6">Notifikasi Follow-up</h3>
+        <h3 className="text-lg font-bold text-slate-900 mb-6">Jadwal Hari Ini</h3>
         <div className="space-y-4">
-          {[
-            { name: 'Ahmad Subarjo', task: 'Recall Scaling', time: '2 jam lagi', urgent: true },
-            { name: 'Siti Aminah', task: 'Kontrol Ortho', time: 'Besok, 09:00', urgent: false },
-            { name: 'Budi Santoso', task: 'Edukasi Diet', time: 'Besok, 11:30', urgent: false },
-          ].map((item, i) => (
-            <div key={i} className="flex items-start gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer border border-transparent hover:border-slate-100">
-              <div className={cn("mt-1 w-2 h-2 rounded-full shrink-0", item.urgent ? "bg-red-500" : "bg-blue-500")} />
-              <div>
-                <p className="text-sm font-bold text-slate-900">{item.name}</p>
-                <p className="text-xs text-slate-500">{item.task}</p>
-                <p className="text-[10px] font-medium text-blue-600 mt-1">{item.time}</p>
+          {appointments.filter(apt => apt.date === today).map((apt, i) => (
+            <div key={i} className="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
+              <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
+                {apt.patient.charAt(0)}
+              </div>
+              <div className="flex-1">
+                <h4 className="text-sm font-bold text-slate-900">{apt.patient}</h4>
+                <p className="text-xs text-slate-500">{apt.type}</p>
+              </div>
+              <div className="text-right">
+                <span className="text-xs font-bold text-slate-900 block">{apt.time}</span>
+                <span className={cn(
+                  "text-[10px] font-bold uppercase tracking-wider",
+                  apt.status === 'confirmed' ? "text-emerald-600" : "text-amber-600"
+                )}>
+                  {apt.status === 'confirmed' ? 'Dikonfirmasi' : 'Menunggu'}
+                </span>
               </div>
             </div>
           ))}
+          {appointments.filter(apt => apt.date === today).length === 0 && (
+            <div className="text-center py-8 text-slate-500 text-sm">
+              Tidak ada jadwal hari ini
+            </div>
+          )}
         </div>
         <button 
           onClick={() => onNavigate('appointments')}
@@ -456,7 +568,8 @@ const Dashboard = ({ onNavigate }: { onNavigate: (page: Page) => void }) => (
       </div>
     </div>
   </div>
-);
+  );
+};
 
 const PatientMaster = ({ 
   patients, 
@@ -483,7 +596,20 @@ const PatientMaster = ({
     gender: 'L' as 'L' | 'P',
     address: '',
     phone: '',
-    insurance: 'Umum'
+    insurance: 'Umum',
+    religion: '',
+    birthPlace: '',
+    occupation: '',
+    nationality: 'Indonesia',
+    bloodType: '',
+    maritalStatus: '',
+    dependents: { children: 0, others: 0 },
+    tribe: '',
+    weight: '',
+    height: '',
+    examiningDentist: '',
+    examiningTherapist: 'Dewi Sri Rahmawati',
+    referralSource: ''
   });
 
   const filteredPatients = patients.filter(p => 
@@ -502,7 +628,20 @@ const PatientMaster = ({
         gender: patient.gender,
         address: patient.address,
         phone: patient.phone,
-        insurance: patient.insurance
+        insurance: patient.insurance,
+        religion: patient.religion || '',
+        birthPlace: patient.birthPlace || '',
+        occupation: patient.occupation || '',
+        nationality: patient.nationality || 'Indonesia',
+        bloodType: patient.bloodType || '',
+        maritalStatus: patient.maritalStatus || '',
+        dependents: patient.dependents || { children: 0, others: 0 },
+        tribe: patient.tribe || '',
+        weight: patient.weight || '',
+        height: patient.height || '',
+        examiningDentist: patient.examiningDentist || '',
+        examiningTherapist: patient.examiningTherapist || '',
+        referralSource: patient.referralSource || ''
       });
     } else {
       setEditingPatient(null);
@@ -513,7 +652,20 @@ const PatientMaster = ({
         gender: 'L',
         address: '',
         phone: '',
-        insurance: 'Umum'
+        insurance: 'Umum',
+        religion: '',
+        birthPlace: '',
+        occupation: '',
+        nationality: 'Indonesia',
+        bloodType: '',
+        maritalStatus: '',
+        dependents: { children: 0, others: 0 },
+        tribe: '',
+        weight: '',
+        height: '',
+        examiningDentist: '',
+        examiningTherapist: 'Dewi Sri Rahmawati',
+        referralSource: ''
       });
     }
     setIsModalOpen(true);
@@ -605,8 +757,8 @@ const PatientMaster = ({
             <tr className="bg-slate-50 border-b border-slate-100">
               <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">No. RM</th>
               <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Nama Pasien</th>
-              <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Usia</th>
-              <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Gender</th>
+              <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Usia / Gender</th>
+              <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Telepon</th>
               <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Asuransi</th>
               <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Aksi</th>
             </tr>
@@ -621,8 +773,10 @@ const PatientMaster = ({
                     <span className="text-xs text-slate-500">{patient.nik}</span>
                   </div>
                 </td>
-                <td className="px-6 py-4 text-sm text-slate-600">{calculateAge(patient.birthDate)} Thn</td>
-                <td className="px-6 py-4 text-sm text-slate-600">{patient.gender === 'L' ? 'Laki-laki' : 'Perempuan'}</td>
+                <td className="px-6 py-4 text-sm text-slate-600">
+                  {calculateAge(patient.birthDate)} Thn / {patient.gender}
+                </td>
+                <td className="px-6 py-4 text-sm text-slate-600">{patient.phone}</td>
                 <td className="px-6 py-4">
                   <span className={cn(
                     "px-2 py-1 rounded-full text-[10px] font-bold uppercase",
@@ -691,8 +845,11 @@ const PatientMaster = ({
                   <X size={20} />
                 </button>
               </div>
-              <form onSubmit={handleSubmit} className="p-6 space-y-6">
+              <form onSubmit={handleSubmit} className="p-6 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="md:col-span-2">
+                    <h4 className="text-sm font-black text-blue-600 uppercase tracking-widest mb-4">Data Identitas Utama</h4>
+                  </div>
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-2">Nama Lengkap</label>
                     <input 
@@ -709,6 +866,15 @@ const PatientMaster = ({
                       className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       value={formData.nik}
                       onChange={e => setFormData({...formData, nik: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Tempat Lahir</label>
+                    <input 
+                      type="text"
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      value={formData.birthPlace}
+                      onChange={e => setFormData({...formData, birthPlace: e.target.value})}
                     />
                   </div>
                   <div>
@@ -732,6 +898,56 @@ const PatientMaster = ({
                     </select>
                   </div>
                   <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Agama</label>
+                    <input 
+                      type="text"
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      value={formData.religion}
+                      onChange={e => setFormData({...formData, religion: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Pekerjaan</label>
+                    <input 
+                      type="text"
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      value={formData.occupation}
+                      onChange={e => setFormData({...formData, occupation: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Bangsa</label>
+                    <input 
+                      type="text"
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      value={formData.nationality}
+                      onChange={e => setFormData({...formData, nationality: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Gol. Darah</label>
+                    <select 
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      value={formData.bloodType}
+                      onChange={e => setFormData({...formData, bloodType: e.target.value})}
+                    >
+                      <option value="">Pilih</option>
+                      <option value="A">A</option>
+                      <option value="B">B</option>
+                      <option value="AB">AB</option>
+                      <option value="O">O</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Status</label>
+                    <input 
+                      type="text"
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      value={formData.maritalStatus}
+                      onChange={e => setFormData({...formData, maritalStatus: e.target.value})}
+                    />
+                  </div>
+                  <div>
                     <label className="block text-sm font-bold text-slate-700 mb-2">No. HP</label>
                     <input 
                       type="text" required
@@ -741,15 +957,16 @@ const PatientMaster = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">Asuransi</label>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Jenis Pembayaran</label>
                     <select 
                       className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       value={formData.insurance}
                       onChange={e => setFormData({...formData, insurance: e.target.value})}
                     >
-                      <option value="Umum">Umum</option>
+                      <option value="UMUM">UMUM</option>
                       <option value="BPJS">BPJS</option>
                       <option value="Mandiri Inhealth">Mandiri Inhealth</option>
+                      <option value="Asuransi lainnya">Asuransi lainnya</option>
                     </select>
                   </div>
                   <div className="md:col-span-2">
@@ -758,6 +975,46 @@ const PatientMaster = ({
                       className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[80px]"
                       value={formData.address}
                       onChange={e => setFormData({...formData, address: e.target.value})}
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <h4 className="text-sm font-black text-blue-600 uppercase tracking-widest mb-4 mt-4">Data Tambahan</h4>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Suku/Adat</label>
+                    <input 
+                      type="text"
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      value={formData.tribe}
+                      onChange={e => setFormData({...formData, tribe: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Sumber Rujukan</label>
+                    <input 
+                      type="text"
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      value={formData.referralSource}
+                      onChange={e => setFormData({...formData, referralSource: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Dokter Gigi yang Melakukan Pemeriksaan</label>
+                    <input 
+                      type="text"
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      value={formData.examiningDentist}
+                      onChange={e => setFormData({...formData, examiningDentist: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Terapis Gigi dan Mulut yang Melakukan Pemeriksaan</label>
+                    <input 
+                      type="text"
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      value={formData.examiningTherapist}
+                      onChange={e => setFormData({...formData, examiningTherapist: e.target.value})}
                     />
                   </div>
                 </div>
@@ -912,14 +1169,7 @@ interface Invoice {
   method: string;
 }
 
-const Billing = ({ onSave }: { onSave: () => void }) => {
-  const [invoices, setInvoices] = useState<Invoice[]>([
-    { id: 'INV-001', patient: 'Ahmad Subarjo', date: '2026-04-05', amount: 450000, status: 'paid', method: 'Transfer Bank' },
-    { id: 'INV-002', patient: 'Siti Aminah', date: '2026-04-06', amount: 1250000, status: 'unpaid', method: '-' },
-    { id: 'INV-003', patient: 'Budi Santoso', date: '2026-04-06', amount: 350000, status: 'paid', method: 'Tunai' },
-    { id: 'INV-004', patient: 'Dewi Lestari', date: '2026-04-07', amount: 2100000, status: 'pending', method: 'BPJS' },
-  ]);
-
+const Billing = ({ invoices, setInvoices, onSave }: { invoices: Invoice[], setInvoices: React.Dispatch<React.SetStateAction<Invoice[]>>, onSave: () => void }) => {
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [printingInvoice, setPrintingInvoice] = useState<Invoice | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -1213,20 +1463,152 @@ const Billing = ({ onSave }: { onSave: () => void }) => {
   );
 };
 
+const ExaminationRow = ({ label, value, onChange }: { label: string, value: string, onChange: (val: string) => void }) => (
+  <div className="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-xl hover:bg-slate-50 transition-all">
+    <span className="text-sm font-bold text-slate-700">{label}</span>
+    <div className="flex gap-4">
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input 
+          type="radio" className="w-4 h-4 text-blue-600"
+          checked={value === 'Normal'}
+          onChange={() => onChange('Normal')}
+        />
+        <span className="text-xs font-bold text-slate-500">N</span>
+      </label>
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input 
+          type="radio" className="w-4 h-4 text-blue-600"
+          checked={value === 'Other'}
+          onChange={() => onChange('Other')}
+        />
+        <span className="text-xs font-bold text-slate-500">O</span>
+      </label>
+    </div>
+  </div>
+);
+
+const HUMAN_NEEDS_GUIDELINES = {
+  perlindunganResiko: {
+    title: "Perlindungan dari Resiko Kesehatan",
+    guideline: "Kebutuhan untuk menghindari komplikasi medis terkait asuhan gigi dan mulut. Contoh: Riwayat penyakit sistemik, alergi, atau kondisi yang memerlukan premedikasi."
+  },
+  bebasKetakutan: {
+    title: "Bebas dari Ketakutan/Stress",
+    guideline: "Kebutuhan untuk merasa aman dan bebas dari ketakutan atau stress terkait asuhan gigi dan mulut. Contoh: Kecemasan terhadap jarum suntik, suara bur, atau pengalaman buruk masa lalu."
+  },
+  kesanWajahSehat: {
+    title: "Kesan Wajah yang Sehat",
+    guideline: "Kebutuhan untuk merasa puas dengan penampilan wajah dan gigi geliginya. Contoh: Gigi berjejal, perubahan warna gigi, atau halitosis yang mempengaruhi kepercayaan diri."
+  },
+  keutuhanMukosa: {
+    title: "Keutuhan Kulit & Membran Mukosa",
+    guideline: "Kebutuhan akan keutuhan jaringan lunak di mulut dan sekitarnya. Contoh: Lesi mulut, gingivitis, periodontitis, atau xerostomia."
+  },
+  kondisiBiologis: {
+    title: "Kondisi Biologis & Fungsi Gigi Geligi",
+    guideline: "Kebutuhan akan fungsi gigi geligi yang baik dan bebas dari penyakit. Contoh: Karies, gigi goyang, atau kesulitan mengunyah."
+  },
+  konseptualisasi: {
+    title: "Konseptualisasi & Pemecahan Masalah",
+    guideline: "Kebutuhan untuk memahami kesehatan gigi dan mulut serta prosedur yang dilakukan. Contoh: Kurangnya pengetahuan tentang cara menyikat gigi yang benar atau pentingnya flossing."
+  },
+  bebasNyeri: {
+    title: "Bebas dari Nyeri pada Kepala & Leher",
+    guideline: "Kebutuhan untuk bebas dari rasa sakit atau tidak nyaman pada area kepala dan leher. Contoh: Sakit gigi akut, nyeri sendi rahang (TMJ), atau sensitivitas gigi."
+  },
+  tanggungJawab: {
+    title: "Tanggung Jawab terhadap Kesehatan Gigi & Mulut",
+    guideline: "Kebutuhan untuk bertanggung jawab atas kesehatan gigi dan mulutnya sendiri. Contoh: Ketidakteraturan kunjungan rutin atau kurangnya motivasi perawatan mandiri."
+  }
+};
+
+const PlaqueTooth = ({ toothId, data, onChange }: { toothId: number, data?: { buccal: boolean, lingual: boolean, mesial: boolean, distal: boolean, excluded?: boolean }, onChange: (surfaces: { buccal: boolean, lingual: boolean, mesial: boolean, distal: boolean, excluded?: boolean }) => void }) => {
+  const surfaces = data || { buccal: false, lingual: false, mesial: false, distal: false, excluded: false };
+  
+  const toggleSurface = (surface: keyof typeof surfaces) => {
+    if (surfaces.excluded) return;
+    onChange({ ...surfaces, [surface as any]: !surfaces[surface as any] });
+  };
+
+  const toggleExclude = () => {
+    onChange({ ...surfaces, excluded: !surfaces.excluded });
+  };
+
+  return (
+    <div className={cn("flex flex-col items-center gap-1 transition-all", surfaces.excluded && "opacity-30 grayscale")}>
+      <button 
+        onClick={toggleExclude}
+        className={cn(
+          "text-[10px] font-bold px-1 rounded transition-colors",
+          surfaces.excluded ? "bg-slate-200 text-slate-500" : "text-slate-400 hover:bg-slate-100"
+        )}
+        title="Klik untuk mengecualikan gigi ini"
+      >
+        {toothId}
+      </button>
+      <div className={cn(
+        "relative w-8 h-8 border rounded-sm overflow-hidden bg-white transition-all shadow-sm",
+        surfaces.excluded ? "border-slate-100" : "border-slate-200"
+      )}>
+        {/* Top (Buccal/Labial) */}
+        <div 
+          onClick={() => toggleSurface('buccal')}
+          className={cn(
+            "absolute top-0 left-0 right-0 h-1/2 cursor-pointer border-b border-slate-100 transition-all",
+            surfaces.buccal ? "bg-red-500" : "hover:bg-red-50"
+          )}
+          style={{ clipPath: 'polygon(0 0, 100% 0, 50% 50%)' }}
+        />
+        {/* Bottom (Lingual/Palatal) */}
+        <div 
+          onClick={() => toggleSurface('lingual')}
+          className={cn(
+            "absolute bottom-0 left-0 right-0 h-1/2 cursor-pointer border-t border-slate-100 transition-all",
+            surfaces.lingual ? "bg-red-500" : "hover:bg-red-50"
+          )}
+          style={{ clipPath: 'polygon(0 100%, 100% 100%, 50% 50%)' }}
+        />
+        {/* Left (Mesial/Distal depending on quadrant) */}
+        <div 
+          onClick={() => toggleSurface('mesial')}
+          className={cn(
+            "absolute top-0 bottom-0 left-0 w-1/2 cursor-pointer border-r border-slate-100 transition-all",
+            surfaces.mesial ? "bg-red-500" : "hover:bg-red-50"
+          )}
+          style={{ clipPath: 'polygon(0 0, 0 100%, 50% 50%)' }}
+        />
+        {/* Right (Distal/Mesial depending on quadrant) */}
+        <div 
+          onClick={() => toggleSurface('distal')}
+          className={cn(
+            "absolute top-0 bottom-0 right-0 w-1/2 cursor-pointer border-l border-slate-100 transition-all",
+            surfaces.distal ? "bg-red-500" : "hover:bg-red-50"
+          )}
+          style={{ clipPath: 'polygon(100% 0, 100% 100%, 50% 50%)' }}
+        />
+      </div>
+    </div>
+  );
+};
+
 const MedicalRecord = ({ 
   patients, 
   selectedPatientId, 
   onSelectPatient,
   onAddAppointment,
-  onSave
+  onSave,
+  user
 }: { 
   patients: Patient[], 
   selectedPatientId: string | null,
   onSelectPatient: (id: string) => void,
   onAddAppointment: (appointment: Omit<Appointment, 'id' | 'status'>) => void,
-  onSave: () => void
+  onSave: () => void,
+  user: User | null
 }) => {
-  const [activeTab, setActiveTab] = useState<'anamnesis' | 'clinical' | 'odontogram' | 'diagnosis' | 'soapie' | 'treatment' | 'consent' | 'resume' | 'riwayat'>('anamnesis');
+  const [activeTab, setActiveTab] = useState<'anamnesis' | 'clinical' | 'diagnosis' | 'treatment' | 'consent' | 'resume' | 'riwayat' | 'evaluation'>('anamnesis');
+  const [anamnesisSubTab, setAnamnesisSubTab] = useState<'medical' | 'social' | 'dental' | 'vital' | 'clinical_exam' | 'pharmacological'>('medical');
+  const [clinicalSubTab, setClinicalSubTab] = useState<'ohis' | 'plaque' | 'odontogram' | 'periodontal'>('ohis');
   const [toothData, setToothData] = useState<Record<number, ToothSurfaceData>>({});
   const [toothNotes, setToothNotes] = useState<Record<number, string>>({});
   const [searchTerm, setSearchTerm] = useState('');
@@ -1234,11 +1616,28 @@ const MedicalRecord = ({
   const [aiAnalysis, setAiAnalysis] = useState<string>('');
   const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
   const [isPreviousVisitModalOpen, setIsPreviousVisitModalOpen] = useState(false);
+  const [showPrimaryTeeth, setShowPrimaryTeeth] = useState(true);
+  const [showDiagnosisGuidelines, setShowDiagnosisGuidelines] = useState(false);
   
-  // Mock History Data
-  const [history] = useState([
-    { date: '2026-03-15', diagnosis: 'Karies Dentin (K02.1)', treatment: 'Penambalan Komposit', doctor: 'Drg. Rizky' },
-    { date: '2026-01-10', diagnosis: 'Gingivitis (K05.1)', treatment: 'Scaling & Root Planing', doctor: 'Drg. Rizky' },
+  // Visit History Data
+  const [history, setHistory] = useState<any[]>([
+    { 
+      date: '2026-03-15', 
+      diagnosis: {
+        unmetNeeds: 'Karies Dentin (K02.1)',
+        cause: 'Oral hygiene buruk',
+        signsSymptoms: 'Lubang pada gigi 16',
+        clientGoals: 'Penambalan gigi',
+        interventions: 'Tumpatan komposit',
+        evaluativeStatement: 'Pasien kooperatif',
+        nextTreatmentRecommendation: 'Kontrol 6 bulan lagi',
+        categories: {}
+      },
+      treatment: ['4'], // Tumpatan Komposit (Kecil)
+      vitalSigns: { tensi: '120/80', suhu: '36.5', hr: '80', rr: '20', tb: '170', bb: '70' },
+      doctor: 'Drg. Rizky', 
+      therapist: 'Dewi Sri Rahmawati' 
+    },
   ]);
 
   const [appointmentForm, setAppointmentForm] = useState({
@@ -1262,10 +1661,63 @@ const MedicalRecord = ({
   
   // Anamnesis State
   const [anamnesis, setAnamnesis] = useState({
-    keluhanUtama: '',
-    riwayatSekarang: '',
-    riwayatDahulu: '',
-    riwayatAlergi: '',
+    medicalHistory: {
+      sehat: true,
+      penyakitSerius: false,
+      detailPenyakitSerius: '',
+      kelainanDarah: false,
+      detailKelainanDarah: '',
+      alergi: {
+        hasAlergi: false,
+        makanan: '',
+        obatObatan: '',
+        obatBius: '',
+        cuaca: '',
+        lainLain: ''
+      },
+      hasLainLain: false,
+      detailLainLain: ''
+    },
+    socialHistory: '',
+    dentalHistory: {
+      alasanKunjungan: '',
+      inginDiketahui: [],
+      inginDiketahuiLainnya: '',
+      rontgen2Tahun: false,
+      rontgenType: '',
+      komplikasiPerawatan: false,
+      detailKomplikasi: '',
+      pendapatKunjunganLalu: '',
+      pendapatKesehatanUmum: '',
+      gejala: [],
+      gejalaLainnya: '',
+      gemeretakGigi: false,
+      biteGuard: false,
+      cemasAromaNafas: false,
+      masalahAromaNafas: [],
+      cederaGigi: false,
+      detailCedera: '',
+      pengalamanLalu: [],
+      pengalamanLaluLainnya: '',
+      // BAG II
+      homeCareTools: [],
+      homeCareToolsLainnya: '',
+      toothpasteBenefits: [],
+      toothpasteBenefitsLainnya: '',
+      cleaningTimeBrushing: '',
+      cleaningTimeFlossing: '',
+      frequencyBrushing: '',
+      frequencyFlossing: '',
+      brushingTimes: [],
+      brushingTimesLainnya: '',
+      difficultyScheduling: null as boolean | null,
+      difficultyCleaningCondition: null as boolean | null,
+      difficultyCleaningOptions: [],
+      difficultyCleaningLainnya: '',
+      monthlyOralCancerCheck: null as boolean | null,
+      habits: [],
+      habitsLainnya: ''
+    },
     vitalSigns: {
       tensi: '',
       suhu: '',
@@ -1273,35 +1725,133 @@ const MedicalRecord = ({
       bb: '',
       hr: '',
       rr: ''
+    },
+    cemilan: [
+      { name: 'Permen Mint', selected: false, frequency: '' },
+      { name: 'Minuman Manis', selected: false, frequency: '' },
+      { name: 'Buah Kering', selected: false, frequency: '' },
+      { name: 'Minuman Kaleng/Botol', selected: false, frequency: '' },
+      { name: 'Permen Karet', selected: false, frequency: '' },
+      { name: 'Kerupuk', selected: false, frequency: '' },
+      { name: 'Obat Syrup', selected: false, frequency: '' },
+      { name: 'Keripik', selected: false, frequency: '' },
+      { name: 'Kue Kering', selected: false, frequency: '' },
+      { name: 'Lainnya', selected: false, frequency: '', detail: '' }
+    ],
+    keyakinan: {
+      kemungkinanBerlubang: '',
+      pentingnyaPencegahan: '',
+      percayaBisaMenjaga: null as boolean | null,
+      percayaKesehatanGigi: ''
+    },
+    pharmacological: {
+      konsumsiObat: null as boolean | null,
+      detailObat: '',
+      untukApa: '',
+      efekSamping: '',
+      pengaruhPositif: '',
+      masalahDosis: null as boolean | null,
+      detailDosis: '',
+      konsumsiTeratur: null as boolean | null
     }
   });
 
   // Clinical Exam State
   const [clinical, setClinical] = useState({
-    ekstraOral: { limfe: 'Normal', tmj: 'Normal', wajah: 'Simetris' },
-    intraOral: { gingiva: '', mukosa: '', lidah: '', palatum: '' }
+    ekstraOral: { 
+      skinFace: 'Normal',
+      skinNeck: 'Normal',
+      vermilionBorders: 'Normal',
+      parotidGlands: 'Normal',
+      lymphNodes: {
+        anteriorCervical: 'Normal',
+        posteriorCervical: 'Normal',
+        submental: 'Normal',
+        submandibular: 'Normal',
+        supraclavicular: 'Normal'
+      },
+      tmj: 'Normal',
+      wajah: 'Simetris',
+      notes: ''
+    },
+    intraOral: { 
+      labialMucosa: 'Normal',
+      labialVestibules: 'Normal',
+      anteriorGingivae: 'Normal',
+      buccalVestibules: 'Normal',
+      buccalGingivae: 'Normal',
+      tongueDorsal: 'Normal',
+      tongueVentral: 'Normal',
+      tongueLateral: 'Normal',
+      lingualTonsils: 'Normal',
+      floorOfMouth: 'Normal',
+      lingualGingivae: 'Normal',
+      tonsillarPillars: 'Normal',
+      pharyngealWall: 'Normal',
+      softPalate: 'Normal',
+      uvula: 'Normal',
+      hardPalate: 'Normal',
+      palatalGingivae: 'Normal',
+      submandibularGlands: 'Normal',
+      notes: ''
+    },
+    ohis: {
+      gigiIndex: [16, 11, 26, 36, 31, 46],
+      debrisIndex: [0, 0, 0, 0, 0, 0],
+      calculusIndex: [0, 0, 0, 0, 0, 0]
+    },
+    plaqueControl: {
+      data: {} as Record<number, { buccal: boolean, lingual: boolean, mesial: boolean, distal: boolean, excluded?: boolean }>,
+      score: 0,
+      kategori: ''
+    },
+    periodontal: {
+      data: {} as Record<number, { bleeding: boolean, attachmentLoss: boolean, pocket: boolean, stains: boolean, calculus: number }>,
+      jumlahSkor: 0
+    }
   });
 
   // Indices State
-  const [indices, setIndices] = useState({
-    di: [0, 0, 0, 0, 0, 0], // 6 index teeth
-    ci: [0, 0, 0, 0, 0, 0]
-  });
-
   // Diagnosis State
   const [selectedNeeds, setSelectedNeeds] = useState<string[]>([]);
+  const [dentalHygieneDiagnosis, setDentalHygieneDiagnosis] = useState({
+    categories: {
+      perlindunganResiko: '',
+      bebasKetakutan: '',
+      kesanWajahSehat: '',
+      keutuhanMukosa: '',
+      kondisiBiologis: '',
+      konseptualisasi: '',
+      bebasNyeri: '',
+      tanggungJawab: ''
+    },
+    unmetNeeds: '',
+    cause: '',
+    signsSymptoms: '',
+    clientGoals: '',
+    interventions: '',
+    evaluativeStatement: '',
+    nextTreatmentRecommendation: ''
+  });
   
-  // SOAPIE State
-  const [soapie, setSoapie] = useState({ s: '', o: '', a: '', p: '', i: '', e: '' });
-
   // Treatment State
   const [selectedTreatments, setSelectedTreatments] = useState<string[]>([]);
+
+  // Consent State
+  const [consent, setConsent] = useState({
+    patientName: '',
+    relationship: '',
+    witnessName: '',
+    operatorName: '',
+    date: new Date().toISOString().split('T')[0]
+  });
 
   // Signature Refs
   const sigDentist = useRef<SignatureCanvas>(null);
   const sigTherapist = useRef<SignatureCanvas>(null);
   const sigPatient = useRef<SignatureCanvas>(null);
   const sigGuardian = useRef<SignatureCanvas>(null);
+  const sigWitness = useRef<SignatureCanvas>(null);
 
   const selectedPatient = patients.find(p => p.id === selectedPatientId);
 
@@ -1326,20 +1876,54 @@ const MedicalRecord = ({
     }));
   };
 
+  useEffect(() => {
+    if (selectedPatient) {
+      setConsent(prev => ({
+        ...prev,
+        patientName: selectedPatient.name,
+        operatorName: selectedPatient.examiningDentist || selectedPatient.examiningTherapist || ''
+      }));
+    }
+  }, [selectedPatient]);
+
   const calculateOHIS = () => {
-    const avgDI = indices.di.reduce((a, b) => a + b, 0) / 6;
-    const avgCI = indices.ci.reduce((a, b) => a + b, 0) / 6;
+    const avgDI = clinical.ohis.debrisIndex.reduce((a, b) => a + b, 0) / 6;
+    const avgCI = clinical.ohis.calculusIndex.reduce((a, b) => a + b, 0) / 6;
     return (avgDI + avgCI).toFixed(2);
   };
 
   const handleAIAnalysis = async () => {
-    if (!anamnesis.keluhanUtama) return;
+    if (!anamnesis.dentalHistory.alasanKunjungan) return;
     setIsAnalyzing(true);
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `Sebagai asisten Dokter Gigi AI profesional, berikan analisis mendalam berdasarkan data pasien berikut:
+      
+      let prompt = "";
+      if (activeTab === 'evaluation') {
+        prompt = `Sebagai asisten Dokter Gigi AI profesional, berikan evaluasi perkembangan pasien berdasarkan perbandingan kunjungan awal dan kunjungan terakhir:
+        
+        DATA PASIEN:
+        Nama: ${selectedPatient?.name}
+        
+        KUNJUNGAN AWAL (${history.length > 0 ? history[history.length - 1].date : 'N/A'}):
+        Diagnosa: ${history.length > 0 ? history[history.length - 1].diagnosis.unmetNeeds : '-'}
+        Tindakan: ${history.length > 0 ? history[history.length - 1].treatment.map((id: string) => TREATMENTS_2023.find(t => t.id === id)?.name).join(', ') : '-'}
+        Tanda Vital: Tensi ${history.length > 0 ? history[history.length - 1].vitalSigns.tensi : '-'}, Suhu ${history.length > 0 ? history[history.length - 1].vitalSigns.suhu : '-'}
+        
+        KUNJUNGAN TERAKHIR (${new Date().toLocaleDateString('id-ID')}):
+        Diagnosa Saat Ini: ${dentalHygieneDiagnosis.unmetNeeds}
+        Tindakan Direncanakan: ${selectedTreatments.map(id => TREATMENTS_2023.find(t => t.id === id)?.name).join(', ')}
+        Tanda Vital: Tensi ${anamnesis.vitalSigns.tensi}, Suhu ${anamnesis.vitalSigns.suhu}
+        
+        Berikan output dalam format Markdown yang rapi dengan bagian-bagian berikut:
+        1. **Ringkasan Perubahan**: (Detail perbaikan atau penurunan kondisi pasien)
+        2. **Analisis Efektivitas Perawatan**: (Apakah tindakan sebelumnya memberikan hasil yang diharapkan?)
+        3. **Rekomendasi Penyesuaian Rencana**: (Apa yang perlu diubah atau dilanjutkan berdasarkan perkembangan ini?)
+        4. **Edukasi Pasien Lanjutan**: (Pesan khusus untuk pasien mengenai progres mereka)
+        
+        Gunakan bahasa Indonesia yang profesional dan berikan detail yang terperinci.`;
+      } else {
+        prompt = `Sebagai asisten Dokter Gigi AI profesional, berikan analisis mendalam berdasarkan data pasien berikut:
         
         DATA PASIEN:
         Nama: ${selectedPatient?.name}
@@ -1347,10 +1931,9 @@ const MedicalRecord = ({
         Jenis Kelamin: ${selectedPatient?.gender}
         
         ANAMNESIS:
-        Keluhan Utama: ${anamnesis.keluhanUtama}
-        Riwayat Penyakit Sekarang: ${anamnesis.riwayatSekarang}
-        Riwayat Penyakit Dahulu: ${anamnesis.riwayatDahulu}
-        Riwayat Alergi: ${anamnesis.riwayatAlergi}
+        Keluhan Utama: ${anamnesis.dentalHistory.alasanKunjungan}
+        Riwayat Medis: ${JSON.stringify(anamnesis.medicalHistory)}
+        Riwayat Sosial: ${anamnesis.socialHistory}
         
         TANDA VITAL:
         Tensi: ${anamnesis.vitalSigns.tensi} mmHg
@@ -1359,8 +1942,13 @@ const MedicalRecord = ({
         RR: ${anamnesis.vitalSigns.rr} x/mnt
         
         PEMERIKSAAN KLINIS:
-        Ekstra Oral: Limfe ${clinical.ekstraOral.limfe}, TMJ ${clinical.ekstraOral.tmj}, Wajah ${clinical.ekstraOral.wajah}
-        Intra Oral: Gingiva ${clinical.intraOral.gingiva}, Mukosa ${clinical.intraOral.mukosa}, Lidah ${clinical.intraOral.lidah}, Palatum ${clinical.intraOral.palatum}
+        OHI-S: ${calculateOHIS()}
+        Plaque Score: ${(() => {
+          const entries = Object.values(clinical.plaqueControl.data);
+          const plaqueCount = entries.reduce((acc, curr) => acc + (curr.buccal ? 1 : 0) + (curr.lingual ? 1 : 0) + (curr.mesial ? 1 : 0) + (curr.distal ? 1 : 0), 0);
+          const totalCount = entries.length * 4;
+          return totalCount > 0 ? ((plaqueCount / totalCount) * 100).toFixed(1) : "0.0";
+        })()}%
         
         Berikan output dalam format Markdown yang rapi dengan bagian-bagian berikut:
         1. **Analisis Keluhan & Diagnosis**: (Analisis keluhan utama dan kemungkinan diagnosis klinis)
@@ -1368,7 +1956,12 @@ const MedicalRecord = ({
         3. **Cara Mencegah**: (Edukasi pasien untuk mencegah masalah serupa di masa depan)
         4. **Cara Mengobati (Instruksi Mandiri)**: (Instruksi perawatan mandiri di rumah untuk pasien)
         
-        Gunakan bahasa Indonesia yang profesional namun mudah dimengerti pasien.`
+        Gunakan bahasa Indonesia yang profesional namun mudah dimengerti pasien.`;
+      }
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: prompt
       });
       setAiAnalysis(response.text || '');
     } catch (error) {
@@ -1382,15 +1975,33 @@ const MedicalRecord = ({
   const applyAIRecommendations = () => {
     if (!aiAnalysis) return;
     
-    // Simple parsing of AI analysis to fill SOAPIE or Treatment
-    // For now, we'll just append the analysis to the 'A' (Assessment) and 'P' (Planning) sections of SOAPIE
-    setSoapie(prev => ({
-      ...prev,
-      a: prev.a + (prev.a ? '\n\n' : '') + '--- AI Assessment ---\n' + aiAnalysis.split('2.')[0].replace('1. **Analisis Keluhan & Diagnosis**:', '').trim(),
-      p: prev.p + (prev.p ? '\n\n' : '') + '--- AI Planning ---\n' + (aiAnalysis.split('2.')[1] || '').split('3.')[0].replace('**Anjuran Tindakan & Pengobatan**:', '').trim()
-    }));
-    
-    alert('Rekomendasi AI telah diterapkan ke bagian SOAPIE (Assessment & Planning).');
+    // AI recommendations logic removed as SOAPIE is no longer available
+    alert('Rekomendasi AI tersedia di panel analisis.');
+  };
+
+  const handleNewVisit = () => {
+    if (confirm('Mulai kunjungan baru? Data saat ini akan disimpan ke riwayat.')) {
+      const newVisit = {
+        date: new Date().toISOString().split('T')[0],
+        diagnosis: { ...dentalHygieneDiagnosis },
+        treatment: [...selectedTreatments],
+        vitalSigns: { ...anamnesis.vitalSigns },
+        doctor: selectedPatient?.examiningDentist || 'Drg. Rizky',
+        therapist: selectedPatient?.examiningTherapist || '-'
+      };
+      setHistory([newVisit, ...history]);
+      
+      // Reset form for new visit
+      setAnamnesis(prev => ({
+        ...prev,
+        vitalSigns: { tensi: '', suhu: '', hr: '', rr: '', tb: '', bb: '' }
+      }));
+      setSelectedTreatments([]);
+      
+      // Navigate to Vital Signs
+      setActiveTab('anamnesis');
+      setAnamnesisSubTab('vital');
+    }
   };
 
   const handlePrint = () => {
@@ -1401,10 +2012,10 @@ const MedicalRecord = ({
     if (!selectedPatient) return;
     const text = `Resume Pemeriksaan Dental - ${selectedPatient.name}
     No RM: ${selectedPatient.mrNumber}
-    Keluhan: ${anamnesis.keluhanUtama}
+    Keluhan: ${anamnesis.dentalHistory.alasanKunjungan}
     OHI-S: ${calculateOHIS()}
     Tindakan: ${selectedTreatments.map(id => TREATMENTS_2023.find(t => t.id === id)?.name).join(', ')}
-    Total Biaya: Rp ${selectedTreatments.reduce((sum, id) => sum + (TREATMENTS_2023.find(t => t.id === id)?.price || 0), 0).toLocaleString('id-ID')}`;
+    Total Biaya: Rp ${selectedPatient.insurance === 'BPJS' ? '0 (BPJS)' : selectedTreatments.reduce((sum, id) => sum + (TREATMENTS_2023.find(t => t.id === id)?.price || 0), 0).toLocaleString('id-ID')}`;
     
     const url = `https://wa.me/${selectedPatient.phone.replace(/^0/, '62')}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
@@ -1463,6 +2074,10 @@ const MedicalRecord = ({
           <div>
             <h2 className="text-xl font-bold text-slate-900">{selectedPatient.name}</h2>
             <p className="text-sm text-slate-500">{selectedPatient.mrNumber} • {calculateAge(selectedPatient.birthDate)} Tahun • {selectedPatient.gender === 'L' ? 'Laki-laki' : 'Perempuan'}</p>
+            <div className="flex gap-4 mt-1">
+              <p className="text-[10px] font-bold text-blue-600 uppercase">Drg: {selectedPatient.examiningDentist || '-'}</p>
+              <p className="text-[10px] font-bold text-emerald-600 uppercase">Terapis: {selectedPatient.examiningTherapist || '-'}</p>
+            </div>
           </div>
         </div>
         <div className="flex gap-2 print:hidden">
@@ -1516,16 +2131,15 @@ const MedicalRecord = ({
 
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide print:hidden">
         {[
-          { id: 'anamnesis', label: 'Anamnesis', icon: ClipboardList },
-          { id: 'clinical', label: 'Pemeriksaan', icon: Stethoscope },
-          { id: 'odontogram', label: 'Odontogram', icon: FileDigit },
-          { id: 'diagnosis', label: 'Diagnosis', icon: AlertCircle },
-          { id: 'soapie', label: 'SOAPIE', icon: BookOpen },
-          { id: 'treatment', label: 'Tindakan', icon: CheckCircle2 },
-          { id: 'consent', label: 'Informed Consent', icon: ShieldCheck },
-          { id: 'resume', label: 'Resume', icon: FileText },
-          { id: 'riwayat', label: 'Riwayat', icon: History },
-        ].map((tab) => (
+          { id: 'anamnesis', label: 'Anamnesis', icon: ClipboardList, roles: ['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut', 'Dosen', 'Pasien'] },
+          { id: 'clinical', label: 'Pemeriksaan', icon: Stethoscope, roles: ['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut', 'Dosen'] },
+          { id: 'diagnosis', label: 'Diagnosis', icon: AlertCircle, roles: ['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut', 'Dosen'] },
+          { id: 'treatment', label: 'Tindakan', icon: CheckCircle2, roles: ['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut', 'Dosen'] },
+          { id: 'consent', label: 'Informed Consent', icon: ShieldCheck, roles: ['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut', 'Dosen', 'Pasien'] },
+          { id: 'resume', label: 'Resume', icon: FileText, roles: ['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut', 'Dosen', 'Pasien'] },
+          { id: 'riwayat', label: 'Riwayat', icon: History, roles: ['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut', 'Dosen'] },
+          { id: 'evaluation', label: 'Evaluasi', icon: Activity, roles: ['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut', 'Dosen', 'Pasien'] },
+        ].filter(tab => tab.roles.includes(user?.role || '')).map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
@@ -1542,115 +2156,1157 @@ const MedicalRecord = ({
         ))}
       </div>
 
-      <div className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm min-h-[400px] print:border-none print:shadow-none print:p-0">
+      <div className={cn("bg-white p-8 rounded-2xl border border-slate-100 shadow-sm min-h-[400px] print:border-none print:shadow-none print:p-0", user?.role === 'Dosen' ? 'dosen-view' : '')}>
         {activeTab === 'anamnesis' && (
           <div className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar">
+              {[
+                { id: 'medical', label: '1. Medical History' },
+                { id: 'social', label: '2. Social History' },
+                { id: 'dental', label: '3. Dental History' },
+                { id: 'vital', label: '4. Vital Signs' },
+                { id: 'clinical_exam', label: '5. Extra & Intra Oral' },
+                { id: 'pharmacological', label: '6. Pharmacological' }
+              ].map(sub => (
+                <button
+                  key={sub.id}
+                  onClick={() => setAnamnesisSubTab(sub.id as any)}
+                  className={cn(
+                    "tab-button px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all",
+                    anamnesisSubTab === sub.id 
+                      ? "bg-blue-600 text-white shadow-lg shadow-blue-200" 
+                      : "bg-white text-slate-500 hover:bg-slate-50 border border-slate-100"
+                  )}
+                >
+                  {sub.label}
+                </button>
+              ))}
+            </div>
+
+            {anamnesisSubTab === 'medical' && (
               <div className="space-y-6">
-                <h3 className="text-lg font-bold text-slate-900 border-b pb-2">Anamnesis</h3>
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Keluhan Utama</label>
-                  <textarea 
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[80px]"
-                    value={anamnesis.keluhanUtama}
-                    onChange={e => setAnamnesis({...anamnesis, keluhanUtama: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Riwayat Penyakit Sekarang</label>
-                  <textarea 
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[80px]"
-                    value={anamnesis.riwayatSekarang}
-                    onChange={e => setAnamnesis({...anamnesis, riwayatSekarang: e.target.value})}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">Riwayat Penyakit Dahulu</label>
-                    <input 
-                      type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                      value={anamnesis.riwayatDahulu}
-                      onChange={e => setAnamnesis({...anamnesis, riwayatDahulu: e.target.value})}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">Riwayat Alergi</label>
-                    <input 
-                      type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                      value={anamnesis.riwayatAlergi}
-                      onChange={e => setAnamnesis({...anamnesis, riwayatAlergi: e.target.value})}
-                    />
+                <h3 className="text-lg font-bold text-slate-900 border-b pb-2">1. Medical History (Riwayat Medis)</h3>
+                <div className="grid grid-cols-1 gap-6">
+                  <div className="space-y-4">
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                      <label className="block text-sm font-bold text-slate-700">a. Pasien merasa dalam keadaan sehat?</label>
+                      <select 
+                        className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        value={anamnesis.medicalHistory.sehat === null ? "" : anamnesis.medicalHistory.sehat ? "Ya" : "Tidak"}
+                        onChange={e => {
+                          const val = e.target.value === "Ya" ? true : e.target.value === "Tidak" ? false : null;
+                          setAnamnesis({...anamnesis, medicalHistory: {...anamnesis.medicalHistory, sehat: val}});
+                        }}
+                      >
+                        <option value="">Pilih Jawaban...</option>
+                        <option value="Ya">Ya</option>
+                        <option value="Tidak">Tidak</option>
+                      </select>
+                    </div>
+
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                      <label className="block text-sm font-bold text-slate-700">b. Selama 5 tahun terakhir, pasien pernah dinyatakan mengalami penyakit serius, menjalani operasi dan atau dirawat inap di rumah sakit, yaitu sakit/operasi?</label>
+                      <select 
+                        className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        value={anamnesis.medicalHistory.penyakitSerius === null ? "" : anamnesis.medicalHistory.penyakitSerius ? "Ya" : "Tidak"}
+                        onChange={e => {
+                          const val = e.target.value === "Ya" ? true : e.target.value === "Tidak" ? false : null;
+                          setAnamnesis({...anamnesis, medicalHistory: {...anamnesis.medicalHistory, penyakitSerius: val}});
+                        }}
+                      >
+                        <option value="">Pilih Jawaban...</option>
+                        <option value="Ya">Ya</option>
+                        <option value="Tidak">Tidak</option>
+                      </select>
+                      {anamnesis.medicalHistory.penyakitSerius && (
+                        <div className="space-y-2">
+                          <label className="block text-xs font-bold text-slate-500">Keterangan Sakit/Operasi:</label>
+                          <input 
+                            type="text" placeholder="Sebutkan penyakit/operasi..."
+                            className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                            value={anamnesis.medicalHistory.detailPenyakitSerius}
+                            onChange={e => setAnamnesis({...anamnesis, medicalHistory: {...anamnesis.medicalHistory, detailPenyakitSerius: e.target.value}})}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                      <label className="block text-sm font-bold text-slate-700">c. Pasien mempunyai kelainan pembekuan darah?</label>
+                      <select 
+                        className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        value={anamnesis.medicalHistory.kelainanDarah === null ? "" : anamnesis.medicalHistory.kelainanDarah ? "Ya" : "Tidak"}
+                        onChange={e => {
+                          const val = e.target.value === "Ya" ? true : e.target.value === "Tidak" ? false : null;
+                          setAnamnesis({...anamnesis, medicalHistory: {...anamnesis.medicalHistory, kelainanDarah: val}});
+                        }}
+                      >
+                        <option value="">Pilih Jawaban...</option>
+                        <option value="Ya">Ya</option>
+                        <option value="Tidak">Tidak</option>
+                      </select>
+                      {anamnesis.medicalHistory.kelainanDarah && (
+                        <div className="space-y-2">
+                          <label className="block text-xs font-bold text-slate-500">Keterangan Kelainan:</label>
+                          <input 
+                            type="text" placeholder="Sebutkan kelainan..."
+                            className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                            value={anamnesis.medicalHistory.detailKelainanDarah}
+                            onChange={e => setAnamnesis({...anamnesis, medicalHistory: {...anamnesis.medicalHistory, detailKelainanDarah: e.target.value}})}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                      <label className="block text-sm font-bold text-slate-700">d. Pasien mempunyai alergi terhadap hal-hal berikut?</label>
+                      <select 
+                        className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        value={anamnesis.medicalHistory.alergi.hasAlergi === null ? "" : anamnesis.medicalHistory.alergi.hasAlergi ? "Ya" : "Tidak"}
+                        onChange={e => {
+                          const val = e.target.value === "Ya" ? true : e.target.value === "Tidak" ? false : null;
+                          setAnamnesis({...anamnesis, medicalHistory: {...anamnesis.medicalHistory, alergi: {...anamnesis.medicalHistory.alergi, hasAlergi: val}}});
+                        }}
+                      >
+                        <option value="">Pilih Jawaban...</option>
+                        <option value="Ya">Ya</option>
+                        <option value="Tidak">Tidak</option>
+                      </select>
+                      {anamnesis.medicalHistory.alergi.hasAlergi && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Makanan</label>
+                            <input 
+                              type="text" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                              value={anamnesis.medicalHistory.alergi.makanan}
+                              onChange={e => setAnamnesis({...anamnesis, medicalHistory: {...anamnesis.medicalHistory, alergi: {...anamnesis.medicalHistory.alergi, makanan: e.target.value}}})}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Obat-obatan</label>
+                            <input 
+                              type="text" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                              value={anamnesis.medicalHistory.alergi.obatObatan}
+                              onChange={e => setAnamnesis({...anamnesis, medicalHistory: {...anamnesis.medicalHistory, alergi: {...anamnesis.medicalHistory.alergi, obatObatan: e.target.value}}})}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Obat yang disuntik (dibius)</label>
+                            <input 
+                              type="text" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                              value={anamnesis.medicalHistory.alergi.obatBius}
+                              onChange={e => setAnamnesis({...anamnesis, medicalHistory: {...anamnesis.medicalHistory, alergi: {...anamnesis.medicalHistory.alergi, obatBius: e.target.value}}})}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Cuaca</label>
+                            <input 
+                              type="text" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                              value={anamnesis.medicalHistory.alergi.cuaca}
+                              onChange={e => setAnamnesis({...anamnesis, medicalHistory: {...anamnesis.medicalHistory, alergi: {...anamnesis.medicalHistory.alergi, cuaca: e.target.value}}})}
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Lain-lain</label>
+                            <input 
+                              type="text" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                              value={anamnesis.medicalHistory.alergi.lainLain}
+                              onChange={e => setAnamnesis({...anamnesis, medicalHistory: {...anamnesis.medicalHistory, alergi: {...anamnesis.medicalHistory.alergi, lainLain: e.target.value}}})}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                      <label className="block text-sm font-bold text-slate-700">e. Lain-lain?</label>
+                      <select 
+                        className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        value={anamnesis.medicalHistory.hasLainLain === null ? "" : anamnesis.medicalHistory.hasLainLain ? "Ya" : "Tidak"}
+                        onChange={e => {
+                          const val = e.target.value === "Ya" ? true : e.target.value === "Tidak" ? false : null;
+                          setAnamnesis({...anamnesis, medicalHistory: {...anamnesis.medicalHistory, hasLainLain: val}});
+                        }}
+                      >
+                        <option value="">Pilih Jawaban...</option>
+                        <option value="Ya">Ya</option>
+                        <option value="Tidak">Tidak</option>
+                      </select>
+                      {anamnesis.medicalHistory.hasLainLain && (
+                        <div className="space-y-2">
+                          <label className="block text-xs font-bold text-slate-500">Keterangan Lain-lain:</label>
+                          <textarea 
+                            className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[80px]"
+                            value={anamnesis.medicalHistory.detailLainLain}
+                            onChange={e => setAnamnesis({...anamnesis, medicalHistory: {...anamnesis.medicalHistory, detailLainLain: e.target.value}})}
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
+            )}
 
+            {anamnesisSubTab === 'social' && (
               <div className="space-y-6">
-                <h3 className="text-lg font-bold text-slate-900 border-b pb-2">Tanda-tanda Vital</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Tensi Darah (mmHg)</label>
+                <h3 className="text-lg font-bold text-slate-900 border-b pb-2">2. Social History (Riwayat Sosial)</h3>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Riwayat Sosial (diisi secara manual)</label>
+                  <textarea 
+                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[200px]"
+                    value={anamnesis.socialHistory}
+                    onChange={e => setAnamnesis({...anamnesis, socialHistory: e.target.value})}
+                    placeholder="Masukkan riwayat sosial pasien di sini..."
+                  />
+                </div>
+              </div>
+            )}
+
+            {anamnesisSubTab === 'vital' && (
+              <div className="space-y-6">
+                <h3 className="text-lg font-bold text-slate-900 border-b pb-2">4. Tanda-tanda Vital (Vital Signs)</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Tekanan Darah (mmHg)</label>
                     <input 
-                      type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      type="text" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       value={anamnesis.vitalSigns.tensi}
                       onChange={e => setAnamnesis({...anamnesis, vitalSigns: {...anamnesis.vitalSigns, tensi: e.target.value}})}
+                      placeholder="Contoh: 120/80"
                     />
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Suhu (°C)</label>
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Denyut Nadi (bpm)</label>
                     <input 
-                      type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                      value={anamnesis.vitalSigns.suhu}
-                      onChange={e => setAnamnesis({...anamnesis, vitalSigns: {...anamnesis.vitalSigns, suhu: e.target.value}})}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Tinggi Badan (cm)</label>
-                    <input 
-                      type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                      value={anamnesis.vitalSigns.tb}
-                      onChange={e => setAnamnesis({...anamnesis, vitalSigns: {...anamnesis.vitalSigns, tb: e.target.value}})}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Berat Badan (kg)</label>
-                    <input 
-                      type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                      value={anamnesis.vitalSigns.bb}
-                      onChange={e => setAnamnesis({...anamnesis, vitalSigns: {...anamnesis.vitalSigns, bb: e.target.value}})}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Heart Rate (bpm)</label>
-                    <input 
-                      type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      type="text" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       value={anamnesis.vitalSigns.hr}
                       onChange={e => setAnamnesis({...anamnesis, vitalSigns: {...anamnesis.vitalSigns, hr: e.target.value}})}
+                      placeholder="Contoh: 80"
                     />
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Respiration Rate (x/mnt)</label>
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Pernafasan (x/menit)</label>
                     <input 
-                      type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      type="text" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       value={anamnesis.vitalSigns.rr}
                       onChange={e => setAnamnesis({...anamnesis, vitalSigns: {...anamnesis.vitalSigns, rr: e.target.value}})}
+                      placeholder="Contoh: 20"
+                    />
+                  </div>
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Suhu (°C)</label>
+                    <input 
+                      type="text" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      value={anamnesis.vitalSigns.suhu}
+                      onChange={e => setAnamnesis({...anamnesis, vitalSigns: {...anamnesis.vitalSigns, suhu: e.target.value}})}
+                      placeholder="Contoh: 36.5"
+                    />
+                  </div>
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Tinggi Badan (cm)</label>
+                    <input 
+                      type="text" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      value={anamnesis.vitalSigns.tb}
+                      onChange={e => setAnamnesis({...anamnesis, vitalSigns: {...anamnesis.vitalSigns, tb: e.target.value}})}
+                      placeholder="Contoh: 170"
+                    />
+                  </div>
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Berat Badan (kg)</label>
+                    <input 
+                      type="text" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      value={anamnesis.vitalSigns.bb}
+                      onChange={e => setAnamnesis({...anamnesis, vitalSigns: {...anamnesis.vitalSigns, bb: e.target.value}})}
+                      placeholder="Contoh: 65"
                     />
                   </div>
                 </div>
               </div>
-            </div>
+            )}
+
+            {anamnesisSubTab === 'clinical_exam' && (
+              <div className="space-y-8">
+                <div className="space-y-6">
+                  <h3 className="text-lg font-bold text-slate-900 border-b pb-2 uppercase tracking-widest">Extraoral Examination</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest px-2">Skin</h4>
+                      <ExaminationRow label="Face" value={clinical.ekstraOral.skinFace} onChange={val => setClinical({...clinical, ekstraOral: {...clinical.ekstraOral, skinFace: val}})} />
+                      <ExaminationRow label="Neck" value={clinical.ekstraOral.skinNeck} onChange={val => setClinical({...clinical, ekstraOral: {...clinical.ekstraOral, skinNeck: val}})} />
+                      <ExaminationRow label="Vermilion Borders" value={clinical.ekstraOral.vermilionBorders} onChange={val => setClinical({...clinical, ekstraOral: {...clinical.ekstraOral, vermilionBorders: val}})} />
+                      <ExaminationRow label="Parotid Glands" value={clinical.ekstraOral.parotidGlands} onChange={val => setClinical({...clinical, ekstraOral: {...clinical.ekstraOral, parotidGlands: val}})} />
+                    </div>
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest px-2">Lymph Nodes</h4>
+                      <ExaminationRow label="Anterior Cervical" value={clinical.ekstraOral.lymphNodes.anteriorCervical} onChange={val => setClinical({...clinical, ekstraOral: {...clinical.ekstraOral, lymphNodes: {...clinical.ekstraOral.lymphNodes, anteriorCervical: val}}})} />
+                      <ExaminationRow label="Posterior Cervical" value={clinical.ekstraOral.lymphNodes.posteriorCervical} onChange={val => setClinical({...clinical, ekstraOral: {...clinical.ekstraOral, lymphNodes: {...clinical.ekstraOral.lymphNodes, posteriorCervical: val}}})} />
+                      <ExaminationRow label="Submental" value={clinical.ekstraOral.lymphNodes.submental} onChange={val => setClinical({...clinical, ekstraOral: {...clinical.ekstraOral, lymphNodes: {...clinical.ekstraOral.lymphNodes, submental: val}}})} />
+                      <ExaminationRow label="Submandibular" value={clinical.ekstraOral.lymphNodes.submandibular} onChange={val => setClinical({...clinical, ekstraOral: {...clinical.ekstraOral, lymphNodes: {...clinical.ekstraOral.lymphNodes, submandibular: val}}})} />
+                      <ExaminationRow label="Supraclavicular" value={clinical.ekstraOral.lymphNodes.supraclavicular} onChange={val => setClinical({...clinical, ekstraOral: {...clinical.ekstraOral, lymphNodes: {...clinical.ekstraOral.lymphNodes, supraclavicular: val}}})} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <h3 className="text-lg font-bold text-slate-900 border-b pb-2 uppercase tracking-widest">Intraoral Examination</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-3">
+                      <ExaminationRow label="Labial Mucosa" value={clinical.intraOral.labialMucosa} onChange={val => setClinical({...clinical, intraOral: {...clinical.intraOral, labialMucosa: val}})} />
+                      <ExaminationRow label="Labial Vestibules" value={clinical.intraOral.labialVestibules} onChange={val => setClinical({...clinical, intraOral: {...clinical.intraOral, labialVestibules: val}})} />
+                      <ExaminationRow label="Anterior Gingivae" value={clinical.intraOral.anteriorGingivae} onChange={val => setClinical({...clinical, intraOral: {...clinical.intraOral, anteriorGingivae: val}})} />
+                      <ExaminationRow label="Buccal Vestibules" value={clinical.intraOral.buccalVestibules} onChange={val => setClinical({...clinical, intraOral: {...clinical.intraOral, buccalVestibules: val}})} />
+                      <ExaminationRow label="Buccal Gingivae" value={clinical.intraOral.buccalGingivae} onChange={val => setClinical({...clinical, intraOral: {...clinical.intraOral, buccalGingivae: val}})} />
+                      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest px-2 mt-4">Tongue</h4>
+                      <ExaminationRow label="Dorsal" value={clinical.intraOral.tongueDorsal} onChange={val => setClinical({...clinical, intraOral: {...clinical.intraOral, tongueDorsal: val}})} />
+                      <ExaminationRow label="Ventral" value={clinical.intraOral.tongueVentral} onChange={val => setClinical({...clinical, intraOral: {...clinical.intraOral, tongueVentral: val}})} />
+                      <ExaminationRow label="Lateral" value={clinical.intraOral.tongueLateral} onChange={val => setClinical({...clinical, intraOral: {...clinical.intraOral, tongueLateral: val}})} />
+                    </div>
+                    <div className="space-y-3">
+                      <ExaminationRow label="Lingual Tonsils" value={clinical.intraOral.lingualTonsils} onChange={val => setClinical({...clinical, intraOral: {...clinical.intraOral, lingualTonsils: val}})} />
+                      <ExaminationRow label="Floor of Mouth" value={clinical.intraOral.floorOfMouth} onChange={val => setClinical({...clinical, intraOral: {...clinical.intraOral, floorOfMouth: val}})} />
+                      <ExaminationRow label="Lingual Gingivae" value={clinical.intraOral.lingualGingivae} onChange={val => setClinical({...clinical, intraOral: {...clinical.intraOral, lingualGingivae: val}})} />
+                      <ExaminationRow label="Tonsillar Pillars" value={clinical.intraOral.tonsillarPillars} onChange={val => setClinical({...clinical, intraOral: {...clinical.intraOral, tonsillarPillars: val}})} />
+                      <ExaminationRow label="Pharyngeal Wall" value={clinical.intraOral.pharyngealWall} onChange={val => setClinical({...clinical, intraOral: {...clinical.intraOral, pharyngealWall: val}})} />
+                      <ExaminationRow label="Soft Palate" value={clinical.intraOral.softPalate} onChange={val => setClinical({...clinical, intraOral: {...clinical.intraOral, softPalate: val}})} />
+                      <ExaminationRow label="Uvula" value={clinical.intraOral.uvula} onChange={val => setClinical({...clinical, intraOral: {...clinical.intraOral, uvula: val}})} />
+                      <ExaminationRow label="Hard Palate" value={clinical.intraOral.hardPalate} onChange={val => setClinical({...clinical, intraOral: {...clinical.intraOral, hardPalate: val}})} />
+                      <ExaminationRow label="Palatal Gingivae" value={clinical.intraOral.palatalGingivae} onChange={val => setClinical({...clinical, intraOral: {...clinical.intraOral, palatalGingivae: val}})} />
+                      <ExaminationRow label="Submandibular Glands" value={clinical.intraOral.submandibularGlands} onChange={val => setClinical({...clinical, intraOral: {...clinical.intraOral, submandibularGlands: val}})} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+                  <label className="block text-sm font-bold text-slate-700">Catatan (Notes):</label>
+                  <textarea 
+                    className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[100px]"
+                    value={clinical.ekstraOral.notes}
+                    onChange={e => setClinical({...clinical, ekstraOral: {...clinical.ekstraOral, notes: e.target.value}})}
+                    placeholder="Tambahkan catatan pemeriksaan di sini..."
+                  />
+                </div>
+              </div>
+            )}
+
+            {anamnesisSubTab === 'pharmacological' && (
+              <div className="space-y-6">
+                <h3 className="text-lg font-bold text-slate-900 border-b pb-2">6. Pharmacological History (Riwayat Farmakologi)</h3>
+                <div className="space-y-6">
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                    <div className="space-y-3">
+                      <label className="block text-sm font-bold text-slate-700">1. Apakah anda sedang/pernah mengkonsumsi obat-obatan (termasuk obat herbal/alternatif)?</label>
+                      <select 
+                        className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        value={anamnesis.pharmacological.konsumsiObat === null ? "" : anamnesis.pharmacological.konsumsiObat ? "Ya" : "Tidak"}
+                        onChange={e => {
+                          const val = e.target.value === "Ya" ? true : e.target.value === "Tidak" ? false : null;
+                          setAnamnesis({...anamnesis, pharmacological: {...anamnesis.pharmacological, konsumsiObat: val}});
+                        }}
+                      >
+                        <option value="">Pilih Jawaban...</option>
+                        <option value="Ya">Ya</option>
+                        <option value="Tidak">Tidak</option>
+                      </select>
+                    </div>
+                    {anamnesis.pharmacological.konsumsiObat && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 mb-1">Keterangan Obat:</label>
+                          <input 
+                            type="text" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                            value={anamnesis.pharmacological.detailObat}
+                            onChange={e => setAnamnesis({...anamnesis, pharmacological: {...anamnesis.pharmacological, detailObat: e.target.value}})}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 mb-1">Untuk Apa:</label>
+                          <input 
+                            type="text" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                            value={anamnesis.pharmacological.untukApa}
+                            onChange={e => setAnamnesis({...anamnesis, pharmacological: {...anamnesis.pharmacological, untukApa: e.target.value}})}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+                    <label className="block text-sm font-bold text-slate-700">2. Apa efek samping dari obat tersebut?</label>
+                    <textarea 
+                      className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[80px]"
+                      value={anamnesis.pharmacological.efekSamping}
+                      onChange={e => setAnamnesis({...anamnesis, pharmacological: {...anamnesis.pharmacological, efekSamping: e.target.value}})}
+                      placeholder="Berikan jawaban keterangan..."
+                    />
+                  </div>
+
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+                    <label className="block text-sm font-bold text-slate-700">3. Apakah pengaruh positif dari obat tersebut?</label>
+                    <textarea 
+                      className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[80px]"
+                      value={anamnesis.pharmacological.pengaruhPositif}
+                      onChange={e => setAnamnesis({...anamnesis, pharmacological: {...anamnesis.pharmacological, pengaruhPositif: e.target.value}})}
+                      placeholder="Berikan jawaban keterangan..."
+                    />
+                  </div>
+
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                    <div className="space-y-3">
+                      <label className="block text-sm font-bold text-slate-700">4. Apakah ada masalah dengan dosis obat tersebut?</label>
+                      <select 
+                        className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        value={anamnesis.pharmacological.masalahDosis === null ? "" : anamnesis.pharmacological.masalahDosis ? "Ya" : "Tidak"}
+                        onChange={e => {
+                          const val = e.target.value === "Ya" ? true : e.target.value === "Tidak" ? false : null;
+                          setAnamnesis({...anamnesis, pharmacological: {...anamnesis.pharmacological, masalahDosis: val}});
+                        }}
+                      >
+                        <option value="">Pilih Jawaban...</option>
+                        <option value="Ya">Ya</option>
+                        <option value="Tidak">Tidak</option>
+                      </select>
+                    </div>
+                    {anamnesis.pharmacological.masalahDosis && (
+                      <div className="space-y-2">
+                        <label className="block text-xs font-bold text-slate-500">Jelaskan:</label>
+                        <textarea 
+                          className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[80px]"
+                          value={anamnesis.pharmacological.detailDosis}
+                          onChange={e => setAnamnesis({...anamnesis, pharmacological: {...anamnesis.pharmacological, detailDosis: e.target.value}})}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                    <label className="block text-sm font-bold text-slate-700">5. Apakah anda mengkonsumsi obat tersebut secara teratur?</label>
+                    <select 
+                      className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      value={anamnesis.pharmacological.konsumsiTeratur === null ? "" : anamnesis.pharmacological.konsumsiTeratur ? "Ya" : "Tidak"}
+                      onChange={e => {
+                        const val = e.target.value === "Ya" ? true : e.target.value === "Tidak" ? false : null;
+                        setAnamnesis({...anamnesis, pharmacological: {...anamnesis.pharmacological, konsumsiTeratur: val}});
+                      }}
+                    >
+                      <option value="">Pilih Jawaban...</option>
+                      <option value="Ya">Ya</option>
+                      <option value="Tidak">Tidak</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {anamnesisSubTab === 'dental' && (
+              <div className="space-y-8">
+                {/* BAGIAN 1 */}
+                <div className="space-y-6">
+                  <h3 className="text-lg font-bold text-slate-900 border-b pb-2">3. Dental History - BAGIAN 1: Pengalaman & Gejala</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-6">
+                      <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-2">a. Apa alasan utama kunjungan anda ke klinik gigi?</label>
+                        <textarea 
+                          className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[80px]"
+                          value={anamnesis.dentalHistory.alasanKunjungan}
+                          onChange={e => setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, alasanKunjungan: e.target.value}})}
+                          placeholder="Berikan jawaban..."
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-2">b. Apakah yang ingin diketahui dari dalam rongga mulut anda saat ini?</label>
+                        <div className="grid grid-cols-1 gap-2">
+                          {['Kerusakan gigi', 'Penyakit pada gusi', 'Luka pada jaringan mulut', 'Kanker mulut'].map(item => (
+                            <label key={item} className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-slate-100">
+                              <input 
+                                type="checkbox" className="w-4 h-4 rounded text-blue-600"
+                                checked={anamnesis.dentalHistory.inginDiketahui.includes(item as any)}
+                                onChange={e => {
+                                  const next = e.target.checked 
+                                    ? [...anamnesis.dentalHistory.inginDiketahui, item]
+                                    : anamnesis.dentalHistory.inginDiketahui.filter(i => i !== item);
+                                  setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, inginDiketahui: next as any}});
+                                }}
+                              />
+                              <span className="text-sm text-slate-700">{item}</span>
+                            </label>
+                          ))}
+                          <div className="mt-2">
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Lainnya (diisi manual):</label>
+                            <input 
+                              type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                              value={anamnesis.dentalHistory.inginDiketahuiLainnya}
+                              onChange={e => setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, inginDiketahuiLainnya: e.target.value}})}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                        <label className="block text-sm font-bold text-slate-700">c. Pernahkah dilakukan rontgen gigi dalam 2 tahun terakhir?</label>
+                        <select 
+                          className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                          value={anamnesis.dentalHistory.rontgen2Tahun === null ? "" : anamnesis.dentalHistory.rontgen2Tahun ? "Ya" : "Tidak"}
+                          onChange={e => {
+                            const val = e.target.value === "Ya" ? true : e.target.value === "Tidak" ? false : null;
+                            setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, rontgen2Tahun: val}});
+                          }}
+                        >
+                          <option value="">Pilih Jawaban...</option>
+                          <option value="Ya">Ya</option>
+                          <option value="Tidak">Tidak</option>
+                        </select>
+                        {anamnesis.dentalHistory.rontgen2Tahun && (
+                          <div className="space-y-2">
+                            <label className="block text-xs font-bold text-slate-500">Rontgen gigi jenis apa?</label>
+                            <input 
+                              type="text" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                              value={anamnesis.dentalHistory.rontgenType}
+                              onChange={e => setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, rontgenType: e.target.value}})}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                        <label className="block text-sm font-bold text-slate-700">d. Pernahkah anda mengalami komplikasi atau pengalaman negatif terkait dengan perawatan gigi sebelumnya?</label>
+                        <select 
+                          className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                          value={anamnesis.dentalHistory.komplikasiPerawatan === null ? "" : anamnesis.dentalHistory.komplikasiPerawatan ? "Ya" : "Tidak"}
+                          onChange={e => {
+                            const val = e.target.value === "Ya" ? true : e.target.value === "Tidak" ? false : null;
+                            setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, komplikasiPerawatan: val}});
+                          }}
+                        >
+                          <option value="">Pilih Jawaban...</option>
+                          <option value="Ya">Ya</option>
+                          <option value="Tidak">Tidak</option>
+                        </select>
+                        {anamnesis.dentalHistory.komplikasiPerawatan && (
+                          <div className="space-y-2">
+                            <label className="block text-xs font-bold text-slate-500">Jelaskan:</label>
+                            <textarea 
+                              className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[80px]"
+                              value={anamnesis.dentalHistory.detailKomplikasi}
+                              onChange={e => setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, detailKomplikasi: e.target.value}})}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                        <label className="block text-sm font-bold text-slate-700">e. Bagaimana pendapat anda tentang kunjungan gigi sebelumnya?</label>
+                        <select 
+                          className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                          value={anamnesis.dentalHistory.pendapatKunjunganLalu}
+                          onChange={e => setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, pendapatKunjunganLalu: e.target.value}})}
+                        >
+                          <option value="">Pilih Jawaban...</option>
+                          <option value="Sangat cemas/takut">Sangat cemas/takut</option>
+                          <option value="Agak cemas/takut">Agak cemas/takut</option>
+                          <option value="Tidak penting sama sekali">Tidak penting sama sekali</option>
+                          <option value="Antusias menantikan kunjungan berikutnya">Antusias menantikan kunjungan berikutnya</option>
+                        </select>
+                      </div>
+
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                        <label className="block text-sm font-bold text-slate-700">f. Bagaimana pendapat anda tentang pernyataan ini? “kesehatan gigi dan mulut mempengaruhi kesehatan umum”?</label>
+                        <select 
+                          className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                          value={anamnesis.dentalHistory.pendapatKesehatanUmum}
+                          onChange={e => setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, pendapatKesehatanUmum: e.target.value}})}
+                        >
+                          <option value="">Pilih Jawaban...</option>
+                          <option value="Sangat setuju">Sangat setuju</option>
+                          <option value="Setuju">Setuju</option>
+                          <option value="Tidak setuju">Tidak setuju</option>
+                          <option value="Sangat tidak setuju">Sangat tidak setuju</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-6">
+                      <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-2">g. Apakah anda mengalami gejala berikut?</label>
+                        <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                          {['Gigi Sensitif', 'Tambalan lepas', 'Sakit pada rahang', 'Mulut kering', 'Sakit gigi', 'Bau mulut', 'Sakit gusi', 'Sensasi terbakar', 'Gusi berdarah', 'Bengkak', 'Kesulitan mengunyah', 'Gusi menurun'].map(item => (
+                            <label key={item} className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-slate-100">
+                              <input 
+                                type="checkbox" className="w-4 h-4 rounded text-blue-600"
+                                checked={anamnesis.dentalHistory.gejala.includes(item as any)}
+                                onChange={e => {
+                                  const next = e.target.checked 
+                                    ? [...anamnesis.dentalHistory.gejala, item]
+                                    : anamnesis.dentalHistory.gejala.filter(i => i !== item);
+                                  setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, gejala: next as any}});
+                                }}
+                              />
+                              <span className="text-sm text-slate-700">{item}</span>
+                            </label>
+                          ))}
+                          <div className="mt-2">
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Lainnya (tambahkan keterangan):</label>
+                            <input 
+                              type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                              value={anamnesis.dentalHistory.gejalaLainnya}
+                              onChange={e => setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, gejalaLainnya: e.target.value}})}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                        <div className="space-y-3">
+                          <label className="block text-sm font-bold text-slate-700">h. Apakah gigi anda bergemeretak/bergesekan disiang atau di malam hari?</label>
+                          <select 
+                            className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                            value={anamnesis.dentalHistory.gemeretakGigi === null ? "" : anamnesis.dentalHistory.gemeretakGigi ? "Ya" : "Tidak"}
+                            onChange={e => {
+                              const val = e.target.value === "Ya" ? true : e.target.value === "Tidak" ? false : null;
+                              setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, gemeretakGigi: val}});
+                            }}
+                          >
+                            <option value="">Pilih Jawaban...</option>
+                            <option value="Ya">Ya</option>
+                            <option value="Tidak">Tidak</option>
+                          </select>
+                        </div>
+                        {anamnesis.dentalHistory.gemeretakGigi && (
+                          <div className="space-y-3 pl-4 border-l-2 border-blue-200">
+                            <label className="block text-sm font-bold text-slate-700">Apakah anda mengenakan pelindung gigitan/bite guard?</label>
+                            <select 
+                              className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                              value={anamnesis.dentalHistory.biteGuard === null ? "" : anamnesis.dentalHistory.biteGuard ? "Ya" : "Tidak"}
+                              onChange={e => {
+                                const val = e.target.value === "Ya" ? true : e.target.value === "Tidak" ? false : null;
+                                setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, biteGuard: val}});
+                              }}
+                            >
+                              <option value="">Pilih Jawaban...</option>
+                              <option value="Ya">Ya</option>
+                              <option value="Tidak">Tidak</option>
+                            </select>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                        <div className="space-y-3">
+                          <label className="block text-sm font-bold text-slate-700">i. Dalam dua tahun terakhir apakah anda mencemaskan tentang aroma nafas/penampilan gigi/wajah anda?</label>
+                          <select 
+                            className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                            value={anamnesis.dentalHistory.cemasAromaNafas === null ? "" : anamnesis.dentalHistory.cemasAromaNafas ? "Ya" : "Tidak"}
+                            onChange={e => {
+                              const val = e.target.value === "Ya" ? true : e.target.value === "Tidak" ? false : null;
+                              setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, cemasAromaNafas: val}});
+                            }}
+                          >
+                            <option value="">Pilih Jawaban...</option>
+                            <option value="Ya">Ya</option>
+                            <option value="Tidak">Tidak</option>
+                          </select>
+                        </div>
+                        {anamnesis.dentalHistory.cemasAromaNafas && (
+                          <div className="space-y-3 pl-4 border-l-2 border-blue-200">
+                            <label className="block text-sm font-bold text-slate-700">Apa saja yang anda anggap bermasalah?</label>
+                            <div className="grid grid-cols-1 gap-2">
+                              {['Gigi menguning atau berubah warna', 'Gigi berjejal/tidak beraturan', 'Jarak antara gigi/renggang', 'Profil wajah', 'Noda pada permukaan gigi', 'Masalah gusi'].map(item => (
+                                <label key={item} className="flex items-center gap-2 p-3 bg-white border border-slate-100 rounded-xl cursor-pointer hover:bg-slate-50">
+                                  <input 
+                                    type="checkbox" className="w-4 h-4 rounded text-blue-600"
+                                    checked={anamnesis.dentalHistory.masalahAromaNafas.includes(item as any)}
+                                    onChange={e => {
+                                      const next = e.target.checked 
+                                        ? [...anamnesis.dentalHistory.masalahAromaNafas, item]
+                                        : anamnesis.dentalHistory.masalahAromaNafas.filter(i => i !== item);
+                                      setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, masalahAromaNafas: next as any}});
+                                    }}
+                                  />
+                                  <span className="text-sm text-slate-700">{item}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                        <label className="block text-sm font-bold text-slate-700">j. Pernahkah anda mengalami cedera pada gigi, wajah dan rahang anda?</label>
+                        <select 
+                          className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                          value={anamnesis.dentalHistory.cederaGigi === null ? "" : anamnesis.dentalHistory.cederaGigi ? "Ya" : "Tidak"}
+                          onChange={e => {
+                            const val = e.target.value === "Ya" ? true : e.target.value === "Tidak" ? false : null;
+                            setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, cederaGigi: val}});
+                          }}
+                        >
+                          <option value="">Pilih Jawaban...</option>
+                          <option value="Ya">Ya</option>
+                          <option value="Tidak">Tidak</option>
+                        </select>
+                        {anamnesis.dentalHistory.cederaGigi && (
+                          <div className="space-y-2">
+                            <label className="block text-xs font-bold text-slate-500">Jelaskan:</label>
+                            <textarea 
+                              className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[80px]"
+                              value={anamnesis.dentalHistory.detailCedera}
+                              onChange={e => setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, detailCedera: e.target.value}})}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-2">k. Apakah anda pernah mengalami/menggunakan hal-hal berikut ini?</label>
+                        <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                          {['Karang gigi', 'Terapi radiasi pada kepala/leher', 'Perdarahan yang berkepanjangan setelah perawatan gigi', 'Pencabutan gigi', 'Gigi palsu', 'Operasi rahang', 'Perawatan saluran akar gigi', 'Rasa sakit pada leher dan kepala', 'Operasi gusi', 'Kawat gigi'].map(item => (
+                            <label key={item} className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-slate-100">
+                              <input 
+                                type="checkbox" className="w-4 h-4 rounded text-blue-600"
+                                checked={anamnesis.dentalHistory.pengalamanLalu.includes(item as any)}
+                                onChange={e => {
+                                  const next = e.target.checked 
+                                    ? [...anamnesis.dentalHistory.pengalamanLalu, item]
+                                    : anamnesis.dentalHistory.pengalamanLalu.filter(i => i !== item);
+                                  setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, pengalamanLalu: next as any}});
+                                }}
+                              />
+                              <span className="text-sm text-slate-700">{item}</span>
+                            </label>
+                          ))}
+                          <div className="mt-2">
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Lain-lain (tambahkan keterangan):</label>
+                            <input 
+                              type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                              value={anamnesis.dentalHistory.pengalamanLaluLainnya}
+                              onChange={e => setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, pengalamanLaluLainnya: e.target.value}})}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* BAGIAN 2 */}
+                <div className="space-y-6 pt-8 border-t border-slate-200">
+                  <h3 className="text-lg font-bold text-slate-900 border-b pb-2">3. Dental History - BAG II: Pemeliharaan Mandiri</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-6">
+                      <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-2">a. Hal-hal berikut yang sering anda gunakan dirumah:</label>
+                        <div className="grid grid-cols-1 gap-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                          {[
+                            'Sikat gigi dengan bulu lunak', 'Sikat gigi dengan bulu sedang', 'Sikat gigi dengan bulu keras', 
+                            'Karet pemijak gusi', 'Sikat khusus sela-sela gigi', 'Air minum berfluoride yang digunakan setiap hari', 
+                            'Air minum berfluoride', 'Sikat gigi elektrik', 'Air dalam botol/kemasan', 'Tusuk gigi', 
+                            'Alat irigasi mulut', 'Benang gigi bertangkai', 'Perekat gigi tiruan', 'Pembersih gigi tiruan', 
+                            'Obat kumur', 'Benang gigi', 'Pemutih gigi', 'Sikat gigi khusus', 'Pasta/gel fluor', 
+                            'Pasta gigi berfluoride', 'Fluor tetes/tablet'
+                          ].map(item => (
+                            <label key={item} className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-slate-100">
+                              <input 
+                                type="checkbox" className="w-4 h-4 rounded text-blue-600"
+                                checked={anamnesis.dentalHistory.homeCareTools.includes(item as any)}
+                                onChange={e => {
+                                  const next = e.target.checked 
+                                    ? [...anamnesis.dentalHistory.homeCareTools, item]
+                                    : anamnesis.dentalHistory.homeCareTools.filter(i => i !== item);
+                                  setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, homeCareTools: next as any}});
+                                }}
+                              />
+                              <span className="text-sm text-slate-700">{item}</span>
+                            </label>
+                          ))}
+                          <div className="mt-2">
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Lainnya (tambahkan keterangan):</label>
+                            <input 
+                              type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                              value={anamnesis.dentalHistory.homeCareToolsLainnya}
+                              onChange={e => setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, homeCareToolsLainnya: e.target.value}})}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-2">b. Keunggulan pasta gigi yang anda gunakan:</label>
+                        <div className="grid grid-cols-1 gap-2">
+                          {['Berfluoride', 'Beraroma mint', 'Perlindungan gigi sensitif', 'Mengandung peroxida', 'Mengontrol karang gigi', 'Memiliki banyak manfaat', 'Mengandung baking soda'].map(item => (
+                            <label key={item} className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-slate-100">
+                              <input 
+                                type="checkbox" className="w-4 h-4 rounded text-blue-600"
+                                checked={anamnesis.dentalHistory.toothpasteBenefits.includes(item as any)}
+                                onChange={e => {
+                                  const next = e.target.checked 
+                                    ? [...anamnesis.dentalHistory.toothpasteBenefits, item]
+                                    : anamnesis.dentalHistory.toothpasteBenefits.filter(i => i !== item);
+                                  setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, toothpasteBenefits: next as any}});
+                                }}
+                              />
+                              <span className="text-sm text-slate-700">{item}</span>
+                            </label>
+                          ))}
+                          <div className="mt-2">
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Lainnya (tambahkan keterangan):</label>
+                            <input 
+                              type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                              value={anamnesis.dentalHistory.toothpasteBenefitsLainnya}
+                              onChange={e => setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, toothpasteBenefitsLainnya: e.target.value}})}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-6">
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                        <label className="block text-sm font-bold text-slate-700">c. Berapa lama waktu yang dibutuhkan untuk pembersihan gigi dan gusi anda?</label>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Menyikat gigi:</label>
+                            <select 
+                              className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                              value={anamnesis.dentalHistory.cleaningTimeBrushing}
+                              onChange={e => setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, cleaningTimeBrushing: e.target.value}})}
+                            >
+                              <option value="">Pilih Waktu...</option>
+                              <option value="1 menit">1 menit</option>
+                              <option value="2 menit">2 menit</option>
+                              <option value="lebih dari 2 menit">lebih dari 2 menit</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Menggunakan benang gigi/flossing:</label>
+                            <select 
+                              className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                              value={anamnesis.dentalHistory.cleaningTimeFlossing}
+                              onChange={e => setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, cleaningTimeFlossing: e.target.value}})}
+                            >
+                              <option value="">Pilih Waktu...</option>
+                              <option value="1 menit">1 menit</option>
+                              <option value="2 menit">2 menit</option>
+                              <option value="lebih dari 2 menit">lebih dari 2 menit</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                        <label className="block text-sm font-bold text-slate-700">d. Berapa kali anda menyikat gigi/membersihkan menggunakan benang gigi?</label>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Menyikat gigi:</label>
+                            <select 
+                              className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                              value={anamnesis.dentalHistory.frequencyBrushing}
+                              onChange={e => setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, frequencyBrushing: e.target.value}})}
+                            >
+                              <option value="">Pilih Frekuensi...</option>
+                              <option value="1">1</option>
+                              <option value="2">2</option>
+                              <option value="lebih dari 2">lebih dari 2</option>
+                            </select>
+                          </div>
+                          {anamnesis.dentalHistory.frequencyBrushing && (
+                            <div>
+                              <label className="block text-xs font-bold text-slate-500 mb-1">Waktu menyikat gigi:</label>
+                              <div className="grid grid-cols-1 gap-2">
+                                {['Pagi hari', 'Pagi setelah sarapan', 'Saat mandi', 'Malam hari sebelum tidur', 'Setelah makan siang'].map(item => (
+                                  <label key={item} className="flex items-center gap-2 p-3 bg-white border border-slate-100 rounded-xl cursor-pointer hover:bg-slate-50">
+                                    <input 
+                                      type="checkbox" className="w-4 h-4 rounded text-blue-600"
+                                      checked={anamnesis.dentalHistory.brushingTimes.includes(item as any)}
+                                      onChange={e => {
+                                        const next = e.target.checked 
+                                          ? [...anamnesis.dentalHistory.brushingTimes, item]
+                                          : anamnesis.dentalHistory.brushingTimes.filter(i => i !== item);
+                                        setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, brushingTimes: next as any}});
+                                      }}
+                                    />
+                                    <span className="text-sm text-slate-700">{item}</span>
+                                  </label>
+                                ))}
+                                <div className="mt-2">
+                                  <label className="block text-xs font-bold text-slate-500 mb-1">Lainnya (tambahkan keterangan):</label>
+                                  <input 
+                                    type="text" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                    value={anamnesis.dentalHistory.brushingTimesLainnya}
+                                    onChange={e => setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, brushingTimesLainnya: e.target.value}})}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                        <label className="block text-sm font-bold text-slate-700">e. Apakah anda merasa kesulitan mengatur jadwal menyikat/membersihkan gigi dan mulut karena kesibukan anda atau alasan lain?</label>
+                        <select 
+                          className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                          value={anamnesis.dentalHistory.difficultyScheduling === null ? "" : anamnesis.dentalHistory.difficultyScheduling ? "Ya" : "Tidak"}
+                          onChange={e => {
+                            const val = e.target.value === "Ya" ? true : e.target.value === "Tidak" ? false : null;
+                            setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, difficultyScheduling: val}});
+                          }}
+                        >
+                          <option value="">Pilih Jawaban...</option>
+                          <option value="Ya">Ya</option>
+                          <option value="Tidak">Tidak</option>
+                        </select>
+                      </div>
+
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                        <div className="space-y-3">
+                          <label className="block text-sm font-bold text-slate-700">f. Apakah ada kondisi yang membuat anda kesulitan memberihkan gigi?</label>
+                          <select 
+                            className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                            value={anamnesis.dentalHistory.difficultyCleaningCondition === null ? "" : anamnesis.dentalHistory.difficultyCleaningCondition ? "Ya" : "Tidak"}
+                            onChange={e => {
+                              const val = e.target.value === "Ya" ? true : e.target.value === "Tidak" ? false : null;
+                              setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, difficultyCleaningCondition: val}});
+                            }}
+                          >
+                            <option value="">Pilih Jawaban...</option>
+                            <option value="Ya">Ya</option>
+                            <option value="Tidak">Tidak</option>
+                          </select>
+                        </div>
+                        {anamnesis.dentalHistory.difficultyCleaningCondition && (
+                          <div className="space-y-3 pl-4 border-l-2 border-blue-200">
+                            <label className="block text-sm font-bold text-slate-700">Kondisi yang menyulitkan:</label>
+                            <div className="grid grid-cols-1 gap-2">
+                              {['Memegang sikat gigi', 'Menggunakan benang gigi', 'Memegang sikat gigi/benang gigi terlalu lama', 'Penglihatan yang buruk'].map(item => (
+                                <label key={item} className="flex items-center gap-2 p-3 bg-white border border-slate-100 rounded-xl cursor-pointer hover:bg-slate-50">
+                                  <input 
+                                    type="checkbox" className="w-4 h-4 rounded text-blue-600"
+                                    checked={anamnesis.dentalHistory.difficultyCleaningOptions.includes(item as any)}
+                                    onChange={e => {
+                                      const next = e.target.checked 
+                                        ? [...anamnesis.dentalHistory.difficultyCleaningOptions, item]
+                                        : anamnesis.dentalHistory.difficultyCleaningOptions.filter(i => i !== item);
+                                      setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, difficultyCleaningOptions: next as any}});
+                                    }}
+                                  />
+                                  <span className="text-sm text-slate-700">{item}</span>
+                                </label>
+                              ))}
+                              <div className="mt-2">
+                                <label className="block text-xs font-bold text-slate-500 mb-1">Lainnya (tambahkan keterangan):</label>
+                                <input 
+                                  type="text" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                  value={anamnesis.dentalHistory.difficultyCleaningLainnya}
+                                  onChange={e => setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, difficultyCleaningLainnya: e.target.value}})}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                        <label className="block text-sm font-bold text-slate-700">g. Apakah anda rutin memeriksa setiap bulan untuk mengetahui adanya kanker mulut?</label>
+                        <select 
+                          className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                          value={anamnesis.dentalHistory.monthlyOralCancerCheck === null ? "" : anamnesis.dentalHistory.monthlyOralCancerCheck ? "Ya" : "Tidak"}
+                          onChange={e => {
+                            const val = e.target.value === "Ya" ? true : e.target.value === "Tidak" ? false : null;
+                            setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, monthlyOralCancerCheck: val}});
+                          }}
+                        >
+                          <option value="">Pilih Jawaban...</option>
+                          <option value="Ya">Ya</option>
+                          <option value="Tidak">Tidak</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-2">h. Manakah kebiasan yang sering anda lakukan?</label>
+                        <div className="grid grid-cols-1 gap-2">
+                          {['Menggigit benda keras', 'Merokok'].map(item => (
+                            <label key={item} className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-slate-100">
+                              <input 
+                                type="checkbox" className="w-4 h-4 rounded text-blue-600"
+                                checked={anamnesis.dentalHistory.habits.includes(item as any)}
+                                onChange={e => {
+                                  const next = e.target.checked 
+                                    ? [...anamnesis.dentalHistory.habits, item]
+                                    : anamnesis.dentalHistory.habits.filter(i => i !== item);
+                                  setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, habits: next as any}});
+                                }}
+                              />
+                              <span className="text-sm text-slate-700">{item}</span>
+                            </label>
+                          ))}
+                          <div className="mt-2">
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Lainnya (tambahkan keterangan):</label>
+                            <input 
+                              type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                              value={anamnesis.dentalHistory.habitsLainnya}
+                              onChange={e => setAnamnesis({...anamnesis, dentalHistory: {...anamnesis.dentalHistory, habitsLainnya: e.target.value}})}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* BAGIAN III */}
+                <div className="space-y-6 pt-8 border-t border-slate-200">
+                  <h3 className="text-lg font-bold text-slate-900 border-b pb-2">3. Dental History - BAGIAN III: Cemilan Diantara Waktu Makan</h3>
+                  <p className="text-sm text-slate-500">Silahkan pilih pada cemilan yang mengandung gula/karbohidrat yang sering anda makan diantara waktu makan:</p>
+                  <div className="space-y-4">
+                    {anamnesis.cemilan.map((item, index) => (
+                      <div key={item.name} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input 
+                              type="checkbox" className="w-5 h-5 rounded-lg text-blue-600 focus:ring-blue-500"
+                              checked={item.selected}
+                              onChange={e => {
+                                const nextCemilan = [...anamnesis.cemilan];
+                                nextCemilan[index].selected = e.target.checked;
+                                setAnamnesis({...anamnesis, cemilan: nextCemilan});
+                              }}
+                            />
+                            <span className="text-sm font-bold text-slate-700">{item.name}</span>
+                          </label>
+                        </div>
+                        {item.selected && (
+                          <div className="space-y-4 pl-7">
+                            {item.name === 'Lainnya' && (
+                              <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1">Keterangan:</label>
+                                <input 
+                                  type="text" placeholder="Sebutkan cemilan lainnya..."
+                                  className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                  value={item.detail}
+                                  onChange={e => {
+                                    const nextCemilan = [...anamnesis.cemilan];
+                                    nextCemilan[index].detail = e.target.value;
+                                    setAnamnesis({...anamnesis, cemilan: nextCemilan});
+                                  }}
+                                />
+                              </div>
+                            )}
+                            <div>
+                              <label className="block text-xs font-bold text-slate-500 mb-1">Frekuensi:</label>
+                              <input 
+                                type="text" placeholder="Contoh: 2x sehari, sesekali..."
+                                className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                value={item.frequency}
+                                onChange={e => {
+                                  const nextCemilan = [...anamnesis.cemilan];
+                                  nextCemilan[index].frequency = e.target.value;
+                                  setAnamnesis({...anamnesis, cemilan: nextCemilan});
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* BAGIAN IV */}
+                <div className="space-y-6 pt-8 border-t border-slate-200">
+                  <h3 className="text-lg font-bold text-slate-900 border-b pb-2">3. Dental History - BAGIAN IV: Keyakinan Tentang Kesehatan Gigi</h3>
+                  <div className="space-y-6">
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                      <label className="block text-sm font-bold text-slate-700">a. Jika dibandingkan dengan orang pada umumnya, menurut ada bagaimana kemungkinan anda memiliki gigi berlubang atau masalah gigi dan atau gusi anda?</label>
+                      <select 
+                        className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        value={anamnesis.keyakinan.kemungkinanBerlubang}
+                        onChange={e => setAnamnesis({...anamnesis, keyakinan: {...anamnesis.keyakinan, kemungkinanBerlubang: e.target.value}})}
+                      >
+                        <option value="">Pilih Jawaban...</option>
+                        <option value="Jauh diatas rata-rata">Jauh diatas rata-rata</option>
+                        <option value="Sedikit diatas rata-rata">Sedikit diatas rata-rata</option>
+                        <option value="Sama seperti umumnya">Sama seperti umumnya</option>
+                        <option value="Sedikit dibawah rata-rata">Sedikit dibawah rata-rata</option>
+                        <option value="Jauh dibawah rata-rata">Jauh dibawah rata-rata</option>
+                      </select>
+                    </div>
+
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                      <label className="block text-sm font-bold text-slate-700">b. Seberapa pentingkah bagi anda mencegah masalah rongga mulut, gusi atau penyakit gigi dan mulut?</label>
+                      <select 
+                        className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        value={anamnesis.keyakinan.pentingnyaPencegahan}
+                        onChange={e => setAnamnesis({...anamnesis, keyakinan: {...anamnesis.keyakinan, pentingnyaPencegahan: e.target.value}})}
+                      >
+                        <option value="">Pilih Jawaban...</option>
+                        <option value="Sangat penting">Sangat penting</option>
+                        <option value="Tidak terlalu penting">Tidak terlalu penting</option>
+                        <option value="Tidak penting">Tidak penting</option>
+                      </select>
+                    </div>
+
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
+                      <span className="text-sm font-bold text-slate-700">c. Saya percaya bahwa saya dapat menjaga kesehatan gigi dan mulut saya.</span>
+                      <div className="flex gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input 
+                            type="radio" name="percayaBisaMenjaga" className="w-4 h-4 text-blue-600"
+                            checked={anamnesis.keyakinan.percayaBisaMenjaga === true}
+                            onChange={() => setAnamnesis({...anamnesis, keyakinan: {...anamnesis.keyakinan, percayaBisaMenjaga: true}})}
+                          />
+                          <span className="text-sm">Ya</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input 
+                            type="radio" name="percayaBisaMenjaga" className="w-4 h-4 text-blue-600"
+                            checked={anamnesis.keyakinan.percayaBisaMenjaga === false}
+                            onChange={() => setAnamnesis({...anamnesis, keyakinan: {...anamnesis.keyakinan, percayaBisaMenjaga: false}})}
+                          />
+                          <span className="text-sm">Tidak</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                      <label className="block text-sm font-bold text-slate-700">d. Saya percaya bahwa kesehatan gigi dan mulut saya saat ini adalah:</label>
+                      <select 
+                        className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        value={anamnesis.keyakinan.percayaKesehatanGigi}
+                        onChange={e => setAnamnesis({...anamnesis, keyakinan: {...anamnesis.keyakinan, percayaKesehatanGigi: e.target.value}})}
+                      >
+                        <option value="">Pilih Jawaban...</option>
+                        <option value="Baik sekali">Baik sekali</option>
+                        <option value="Baik">Baik</option>
+                        <option value="Cukup">Cukup</option>
+                        <option value="Buruk">Buruk</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="flex justify-end gap-3 pt-6 border-t border-slate-100 print:hidden">
               <button 
-                onClick={() => { if(confirm('Batalkan perubahan anamnesis?')) { setAnamnesis({ keluhanUtama: '', riwayatSekarang: '', riwayatDahulu: '', riwayatAlergi: '', vitalSigns: { tensi: '', suhu: '', tb: '', bb: '', hr: '', rr: '' } }); } }}
+                onClick={() => { 
+                  if(confirm('Batalkan perubahan anamnesis?')) { 
+                    setAnamnesis({
+                      medicalHistory: { sehat: true, penyakitSerius: false, detailPenyakitSerius: '', kelainanDarah: false, detailKelainanDarah: '', alergi: { hasAlergi: false, makanan: '', obatObatan: '', obatBius: '', cuaca: '', lainLain: '' }, hasLainLain: false, detailLainLain: '' },
+                      socialHistory: '',
+                      dentalHistory: { alasanKunjungan: '', inginDiketahui: [], inginDiketahuiLainnya: '', rontgen2Tahun: false, rontgenType: '', komplikasiPerawatan: false, detailKomplikasi: '', pendapatKunjunganLalu: '', pendapatKesehatanUmum: '', gejala: [], gejalaLainnya: '', gemeretakGigi: false, biteGuard: false, cemasAromaNafas: false, masalahAromaNafas: [], cederaGigi: false, detailCedera: '', pengalamanLalu: [], pengalamanLaluLainnya: '', homeCareTools: [], homeCareToolsLainnya: '', toothpasteBenefits: [], toothpasteBenefitsLainnya: '', cleaningTimeBrushing: '', cleaningTimeFlossing: '', frequencyBrushing: '', frequencyFlossing: '', brushingTimes: [], brushingTimesLainnya: '', difficultyScheduling: null, difficultyCleaningCondition: null, difficultyCleaningOptions: [], difficultyCleaningLainnya: '', monthlyOralCancerCheck: null, habits: [], habitsLainnya: '' },
+                      vitalSigns: { tensi: '', suhu: '', tb: '', bb: '', hr: '', rr: '' },
+                      cemilan: [ { name: 'Permen Mint', selected: false, frequency: '' }, { name: 'Minuman Manis', selected: false, frequency: '' }, { name: 'Buah Kering', selected: false, frequency: '' }, { name: 'Minuman Kaleng/Botol', selected: false, frequency: '' }, { name: 'Permen Karet', selected: false, frequency: '' }, { name: 'Kerupuk', selected: false, frequency: '' }, { name: 'Obat Syrup', selected: false, frequency: '' }, { name: 'Keripik', selected: false, frequency: '' }, { name: 'Kue Kering', selected: false, frequency: '' }, { name: 'Lainnya', selected: false, frequency: '', detail: '' } ],
+                      keyakinan: { kemungkinanBerlubang: '', pentingnyaPencegahan: '', percayaBisaMenjaga: null, percayaKesehatanGigi: '' },
+                      pharmacological: { konsumsiObat: null, detailObat: '', untukApa: '', efekSamping: '', pengaruhPositif: '', masalahDosis: null, detailDosis: '', konsumsiTeratur: null }
+                    });
+                    setAnamnesisSubTab('medical'); 
+                  } 
+                }}
                 className="px-6 py-3 border border-slate-200 rounded-xl font-bold text-slate-600 hover:bg-slate-50 transition-all"
               >
-                Batal
-              </button>
-              <button 
-                onClick={handlePrint}
-                className="flex items-center gap-2 px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all"
-              >
-                <Printer size={18} />
-                Cetak
+                Reset Tab
               </button>
               <button 
                 onClick={onSave}
@@ -1665,99 +3321,521 @@ const MedicalRecord = ({
 
         {activeTab === 'clinical' && (
           <div className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-4">
-                <h4 className="text-sm font-bold text-slate-900 border-b pb-2">Pemeriksaan Ekstra Oral</h4>
-                <div className="grid grid-cols-1 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Kelenjar Limfe</label>
-                    <select 
-                      className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
-                      value={clinical.ekstraOral.limfe}
-                      onChange={e => setClinical({...clinical, ekstraOral: {...clinical.ekstraOral, limfe: e.target.value}})}
-                    >
-                      <option>Normal (Tidak Teraba)</option>
-                      <option>Teraba, Lunak</option>
-                      <option>Teraba, Keras/Sakit</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">TMJ</label>
-                    <select 
-                      className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
-                      value={clinical.ekstraOral.tmj}
-                      onChange={e => setClinical({...clinical, ekstraOral: {...clinical.ekstraOral, tmj: e.target.value}})}
-                    >
-                      <option>Normal</option>
-                      <option>Clicking</option>
-                      <option>Crepitasi</option>
-                      <option>Trismus</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Wajah</label>
-                    <select 
-                      className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
-                      value={clinical.ekstraOral.wajah}
-                      onChange={e => setClinical({...clinical, ekstraOral: {...clinical.ekstraOral, wajah: e.target.value}})}
-                    >
-                      <option>Simetris</option>
-                      <option>Asimetris</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-4">
-                <h4 className="text-sm font-bold text-slate-900 border-b pb-2">Pemeriksaan Intra Oral</h4>
-                <div className="grid grid-cols-1 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Gingiva</label>
-                    <input 
-                      type="text" className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" placeholder="Warna, Bentuk, Konsistensi" 
-                      value={clinical.intraOral.gingiva}
-                      onChange={e => setClinical({...clinical, intraOral: {...clinical.intraOral, gingiva: e.target.value}})}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Mukosa</label>
-                    <input 
-                      type="text" className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" placeholder="Normal / Kelainan" 
-                      value={clinical.intraOral.mukosa}
-                      onChange={e => setClinical({...clinical, intraOral: {...clinical.intraOral, mukosa: e.target.value}})}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Lidah</label>
-                    <input 
-                      type="text" className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" placeholder="Normal / Kelainan" 
-                      value={clinical.intraOral.lidah}
-                      onChange={e => setClinical({...clinical, intraOral: {...clinical.intraOral, lidah: e.target.value}})}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Palatum</label>
-                    <input 
-                      type="text" className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" placeholder="Normal / Kelainan" 
-                      value={clinical.intraOral.palatum}
-                      onChange={e => setClinical({...clinical, intraOral: {...clinical.intraOral, palatum: e.target.value}})}
-                    />
-                  </div>
-                </div>
-              </div>
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar">
+              {[
+                { id: 'ohis', label: 'OHI-S' },
+                { id: 'plaque', label: 'Plaque Control' },
+                { id: 'odontogram', label: 'Odontogram' },
+                { id: 'periodontal', label: 'Periodontal' }
+              ].map(sub => (
+                <button
+                  key={sub.id}
+                  onClick={() => setClinicalSubTab(sub.id as any)}
+                  className={cn(
+                    "tab-button px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all",
+                    clinicalSubTab === sub.id 
+                      ? "bg-blue-600 text-white shadow-lg shadow-blue-200" 
+                      : "bg-white text-slate-500 hover:bg-slate-50 border border-slate-100"
+                  )}
+                >
+                  {sub.label}
+                </button>
+              ))}
             </div>
+
+            {clinicalSubTab === 'ohis' && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between border-b pb-2">
+                  <h3 className="text-lg font-bold text-slate-900">OHI-S (Oral Hygiene Index Simplified)</h3>
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase">
+                    <SettingsIcon size={14} />
+                    <span>Pengaturan Gigi Index</span>
+                  </div>
+                </div>
+                
+                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 overflow-x-auto">
+                  <table className="w-full text-center border-collapse">
+                    <thead>
+                      <tr className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        <th className="p-2">Index</th>
+                        {clinical.ohis.gigiIndex.map((gigi, i) => (
+                          <th key={i} className="p-2">
+                            <input 
+                              type="number"
+                              className="w-12 p-1 text-center bg-white border border-slate-200 rounded-lg text-sm font-black text-blue-600"
+                              value={gigi}
+                              onChange={e => {
+                                const next = [...clinical.ohis.gigiIndex];
+                                next[i] = parseInt(e.target.value) || 0;
+                                setClinical({...clinical, ohis: {...clinical.ohis, gigiIndex: next}});
+                              }}
+                            />
+                          </th>
+                        ))}
+                        <th className="p-2">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      <tr>
+                        <td className="p-2 text-xs font-bold text-slate-700">Debris Index</td>
+                        {clinical.ohis.debrisIndex.map((val, i) => (
+                          <td key={i} className="p-2">
+                            <input 
+                              type="number" min="0" max="3"
+                              className="w-12 p-1 text-center bg-white border border-slate-200 rounded-lg text-sm"
+                              value={val}
+                              onChange={e => {
+                                const next = [...clinical.ohis.debrisIndex];
+                                next[i] = parseInt(e.target.value) || 0;
+                                setClinical({...clinical, ohis: {...clinical.ohis, debrisIndex: next}});
+                              }}
+                            />
+                          </td>
+                        ))}
+                        <td className="p-2 font-bold text-blue-600">{(clinical.ohis.debrisIndex.reduce((a, b) => a + b, 0) / 6).toFixed(2)}</td>
+                      </tr>
+                      <tr>
+                        <td className="p-2 text-xs font-bold text-slate-700">Calculus Index</td>
+                        {clinical.ohis.calculusIndex.map((val, i) => (
+                          <td key={i} className="p-2">
+                            <input 
+                              type="number" min="0" max="3"
+                              className="w-12 p-1 text-center bg-white border border-slate-200 rounded-lg text-sm"
+                              value={val}
+                              onChange={e => {
+                                const next = [...clinical.ohis.calculusIndex];
+                                next[i] = parseInt(e.target.value) || 0;
+                                setClinical({...clinical, ohis: {...clinical.ohis, calculusIndex: next}});
+                              }}
+                            />
+                          </td>
+                        ))}
+                        <td className="p-2 font-bold text-blue-600">{(clinical.ohis.calculusIndex.reduce((a, b) => a + b, 0) / 6).toFixed(2)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex items-center justify-between p-6 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-100">
+                  <div>
+                    <h4 className="text-sm font-bold opacity-80">Skor OHI-S Akhir</h4>
+                    <p className="text-3xl font-black">
+                      {((clinical.ohis.debrisIndex.reduce((a, b) => a + b, 0) / 6) + (clinical.ohis.calculusIndex.reduce((a, b) => a + b, 0) / 6)).toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <h4 className="text-sm font-bold opacity-80">Kategori</h4>
+                    <p className="text-xl font-bold">
+                      {(() => {
+                        const score = (clinical.ohis.debrisIndex.reduce((a, b) => a + b, 0) / 6) + (clinical.ohis.calculusIndex.reduce((a, b) => a + b, 0) / 6);
+                        if (score <= 1.2) return 'Baik';
+                        if (score <= 3.0) return 'Sedang';
+                        return 'Buruk';
+                      })()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {clinicalSubTab === 'plaque' && (
+              <div className="space-y-8">
+                <div className="flex items-center justify-between border-b pb-4">
+                  <h3 className="text-lg font-bold text-slate-900">Pemeriksaan Hasil Menyikat Gigi Sendiri (Plaque Control)</h3>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <span className="text-xs font-bold text-slate-400 uppercase">Skor Plak</span>
+                      <p className={cn(
+                        "text-2xl font-black",
+                        (() => {
+                          const entries = Object.values(clinical.plaqueControl.data).filter(t => !t.excluded);
+                          const plaqueCount = entries.reduce((acc, curr) => acc + (curr.buccal ? 1 : 0) + (curr.lingual ? 1 : 0) + (curr.mesial ? 1 : 0) + (curr.distal ? 1 : 0), 0);
+                          const totalCount = entries.length * 4;
+                          const score = totalCount > 0 ? (plaqueCount / totalCount) * 100 : 0;
+                          return score >= 15 ? "text-red-600" : "text-green-600";
+                        })()
+                      )}>
+                        {(() => {
+                          const entries = Object.values(clinical.plaqueControl.data).filter(t => !t.excluded);
+                          const plaqueCount = entries.reduce((acc, curr) => acc + (curr.buccal ? 1 : 0) + (curr.lingual ? 1 : 0) + (curr.mesial ? 1 : 0) + (curr.distal ? 1 : 0), 0);
+                          const totalCount = entries.length * 4;
+                          return totalCount > 0 ? ((plaqueCount / totalCount) * 100).toFixed(1) : "0.0";
+                        })()}%
+                      </p>
+                    </div>
+                    <div className="px-4 py-2 bg-slate-100 rounded-xl">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase block">Kategori</span>
+                      <span className="text-sm font-bold text-slate-700">
+                        {(() => {
+                          const entries = Object.values(clinical.plaqueControl.data).filter(t => !t.excluded);
+                          const plaqueCount = entries.reduce((acc, curr) => acc + (curr.buccal ? 1 : 0) + (curr.lingual ? 1 : 0) + (curr.mesial ? 1 : 0) + (curr.distal ? 1 : 0), 0);
+                          const totalCount = entries.length * 4;
+                          const score = totalCount > 0 ? (plaqueCount / totalCount) * 100 : 0;
+                          return score < 15 ? "Baik" : "Buruk";
+                        })()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-8 overflow-x-auto pb-4 custom-scrollbar">
+                  {/* Upper Teeth */}
+                  <div className="space-y-4 min-w-[800px]">
+                    <div className="flex justify-center gap-2">
+                      {[18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28].map(id => (
+                        <PlaqueTooth 
+                          key={id} toothId={id} 
+                          data={clinical.plaqueControl.data[id]} 
+                          onChange={surfaces => setClinical({...clinical, plaqueControl: {...clinical.plaqueControl, data: {...clinical.plaqueControl.data, [id]: surfaces}}})} 
+                        />
+                      ))}
+                    </div>
+                    <div className="flex justify-center gap-2">
+                      {[55, 54, 53, 52, 51, 61, 62, 63, 64, 65].map(id => (
+                        <PlaqueTooth 
+                          key={id} toothId={id} 
+                          data={clinical.plaqueControl.data[id]} 
+                          onChange={surfaces => setClinical({...clinical, plaqueControl: {...clinical.plaqueControl, data: {...clinical.plaqueControl.data, [id]: surfaces}}})} 
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="h-px bg-slate-200 w-full min-w-[800px]" />
+
+                  {/* Lower Teeth */}
+                  <div className="space-y-4 min-w-[800px]">
+                    <div className="flex justify-center gap-2">
+                      {[85, 84, 83, 82, 81, 71, 72, 73, 74, 75].map(id => (
+                        <PlaqueTooth 
+                          key={id} toothId={id} 
+                          data={clinical.plaqueControl.data[id]} 
+                          onChange={surfaces => setClinical({...clinical, plaqueControl: {...clinical.plaqueControl, data: {...clinical.plaqueControl.data, [id]: surfaces}}})} 
+                        />
+                      ))}
+                    </div>
+                    <div className="flex justify-center gap-2">
+                      {[48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38].map(id => (
+                        <PlaqueTooth 
+                          key={id} toothId={id} 
+                          data={clinical.plaqueControl.data[id]} 
+                          onChange={surfaces => setClinical({...clinical, plaqueControl: {...clinical.plaqueControl, data: {...clinical.plaqueControl.data, [id]: surfaces}}})} 
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                  <h4 className="text-sm font-bold text-slate-700 mb-4">Kalkulasi Skor Plak:</h4>
+                  <div className="flex flex-wrap gap-8 items-center text-sm">
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-slate-400 uppercase">Jumlah Permukaan Ada Plak</span>
+                      <span className="text-lg font-bold text-slate-700">
+                        {Object.values(clinical.plaqueControl.data).filter(t => !t.excluded).reduce((acc, curr) => acc + (curr.buccal ? 1 : 0) + (curr.lingual ? 1 : 0) + (curr.mesial ? 1 : 0) + (curr.distal ? 1 : 0), 0)}
+                      </span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-slate-400 uppercase">Jumlah Permukaan Diperiksa</span>
+                      <span className="text-lg font-bold text-slate-700">
+                        {Object.values(clinical.plaqueControl.data).filter(t => !t.excluded).length * 4}
+                      </span>
+                    </div>
+                    <div className="text-slate-300 text-2xl">/</div>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-slate-400 uppercase">Total Permukaan Diperiksa</span>
+                      <span className="text-lg font-bold text-slate-700">{Object.keys(clinical.plaqueControl.data).length * 4}</span>
+                    </div>
+                    <div className="text-slate-300 text-2xl">×</div>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-slate-400 uppercase">Multiplier</span>
+                      <span className="text-lg font-bold text-slate-700">100%</span>
+                    </div>
+                    <div className="text-slate-300 text-2xl">=</div>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-slate-400 uppercase">Hasil</span>
+                      <span className="text-xl font-black text-blue-600">
+                        {(() => {
+                          const entries = Object.values(clinical.plaqueControl.data);
+                          const plaqueCount = entries.reduce((acc, curr) => acc + (curr.buccal ? 1 : 0) + (curr.lingual ? 1 : 0) + (curr.mesial ? 1 : 0) + (curr.distal ? 1 : 0), 0);
+                          const totalCount = entries.length * 4;
+                          return totalCount > 0 ? ((plaqueCount / totalCount) * 100).toFixed(1) : "0.0";
+                        })()}%
+                      </span>
+                    </div>
+                  </div>
+                  <p className="mt-4 text-xs text-slate-500 italic">* Kategori: &lt; 15% = Baik, ≥ 15% = Buruk</p>
+                </div>
+              </div>
+            )}
+
+            {clinicalSubTab === 'odontogram' && (
+              <div className="space-y-8">
+                <div className="flex flex-wrap justify-center items-center gap-6 p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                  <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl border border-slate-100">
+                    <input 
+                      type="checkbox" 
+                      id="togglePrimary"
+                      checked={showPrimaryTeeth}
+                      onChange={(e) => setShowPrimaryTeeth(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                    />
+                    <label htmlFor="togglePrimary" className="text-[10px] font-bold text-slate-600 uppercase tracking-wider cursor-pointer">Tampilkan Gigi Susu</label>
+                  </div>
+                  <div className="h-8 w-px bg-slate-100 mx-2" />
+                  {[
+                    { status: 'healthy', label: 'Sehat', color: 'bg-white border-slate-400' },
+                    { status: 'caries', label: 'Karies', color: 'bg-red-500' },
+                    { status: 'filled', label: 'Tambalan', color: 'bg-blue-500' },
+                    { status: 'missing', label: 'Hilang', color: 'bg-slate-200' },
+                    { status: 'impacted', label: 'Impaksi', color: 'bg-amber-500' },
+                  ].map(item => (
+                    <div key={item.status} className="flex items-center gap-2">
+                      <div className={cn("w-4 h-4 rounded border", item.color)} />
+                      <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">{item.label}</span>
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-xl overflow-x-auto">
+                  <div className="min-w-[800px] flex flex-col items-center gap-12">
+                    {/* Upper Adult */}
+                    <div className="flex flex-col items-center gap-4">
+                      <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">Rahang Atas (Dewasa)</span>
+                      <div className="flex gap-2">
+                        {ADULT_TEETH_TOP.map(id => (
+                          <Tooth key={id} id={id} data={toothData[id]} onSurfaceClick={handleSurfaceClick} />
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Upper Child */}
+                    {showPrimaryTeeth && (
+                      <div className="flex flex-col items-center gap-4">
+                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">Rahang Atas (Anak)</span>
+                        <div className="flex gap-2">
+                          {CHILD_TEETH_TOP.map(id => (
+                            <Tooth key={id} id={id} data={toothData[id]} onSurfaceClick={handleSurfaceClick} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="w-full h-px bg-slate-100 relative">
+                      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-4 text-[10px] font-bold text-slate-300 uppercase tracking-widest">Garis Median</div>
+                    </div>
+
+                    {/* Lower Child */}
+                    {showPrimaryTeeth && (
+                      <div className="flex flex-col items-center gap-4">
+                        <div className="flex gap-2">
+                          {CHILD_TEETH_BOTTOM.map(id => (
+                            <Tooth key={id} id={id} data={toothData[id]} onSurfaceClick={handleSurfaceClick} />
+                          ))}
+                        </div>
+                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">Rahang Bawah (Anak)</span>
+                      </div>
+                    )}
+
+                    {/* Lower Adult */}
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="flex gap-2">
+                        {ADULT_TEETH_BOTTOM.map(id => (
+                          <Tooth key={id} id={id} data={toothData[id]} onSurfaceClick={handleSurfaceClick} />
+                        ))}
+                      </div>
+                      <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">Rahang Bawah (Dewasa)</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tooth Findings Table (from PDF) */}
+                <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Temuan Jaringan Keras (Kiri)</h4>
+                    <div className="grid grid-cols-1 gap-2 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+                      {[
+                        ...ADULT_TEETH_TOP.slice(0, 8), 
+                        ...ADULT_TEETH_BOTTOM.slice(8),
+                        ...(showPrimaryTeeth ? [...CHILD_TEETH_TOP.slice(0, 5), ...CHILD_TEETH_BOTTOM.slice(5)] : [])
+                      ].sort((a, b) => a - b).map(id => (
+                        <div key={id} className="flex items-center gap-3 p-2 bg-white rounded-xl border border-slate-100 shadow-sm">
+                          <span className="w-8 text-xs font-black text-blue-600">{id}</span>
+                          <input 
+                            type="text" placeholder="Temuan..."
+                            className="flex-1 bg-transparent border-none focus:ring-0 text-sm"
+                            value={toothNotes[id] || ''}
+                            onChange={e => setToothNotes(prev => ({ ...prev, [id]: e.target.value }))}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Temuan Jaringan Keras (Kanan)</h4>
+                    <div className="grid grid-cols-1 gap-2 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+                      {[
+                        ...ADULT_TEETH_TOP.slice(8), 
+                        ...ADULT_TEETH_BOTTOM.slice(0, 8),
+                        ...(showPrimaryTeeth ? [...CHILD_TEETH_TOP.slice(5), ...CHILD_TEETH_BOTTOM.slice(0, 5)] : [])
+                      ].sort((a, b) => a - b).map(id => (
+                        <div key={id} className="flex items-center gap-3 p-2 bg-white rounded-xl border border-slate-100 shadow-sm">
+                          <span className="w-8 text-xs font-black text-blue-600">{id}</span>
+                          <input 
+                            type="text" placeholder="Temuan..."
+                            className="flex-1 bg-transparent border-none focus:ring-0 text-sm"
+                            value={toothNotes[id] || ''}
+                            onChange={e => setToothNotes(prev => ({ ...prev, [id]: e.target.value }))}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {clinicalSubTab === 'periodontal' && (
+              <div className="space-y-8">
+                <h3 className="text-lg font-bold text-slate-900 border-b pb-2">Periodontal, Kalkulus & Extrinsic Stains</h3>
+                <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden overflow-x-auto custom-scrollbar">
+                  <table className="w-full text-center border-collapse min-w-[1200px]">
+                    <thead>
+                      <tr className="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                        <th className="p-3 text-left sticky left-0 bg-slate-50 z-10 w-48">Pemeriksaan</th>
+                        {[18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28].map(id => (
+                          <th key={id} className="p-3 border-l border-slate-100">{id}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {[
+                        { label: 'Bleeding on probing', key: 'bleeding' },
+                        { label: 'Attachment loss > 1mm', key: 'attachmentLoss' },
+                        { label: 'Pocket > 4mm', key: 'pocket' },
+                        { label: 'Extrinsic Stains', key: 'stains' }
+                      ].map(row => (
+                        <tr key={row.key} className="hover:bg-slate-50 transition-all">
+                          <td className="p-3 text-xs font-bold text-slate-700 text-left sticky left-0 bg-white z-10 border-r border-slate-100">{row.label}</td>
+                          {[18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28].map(id => (
+                            <td key={id} className="p-3 border-l border-slate-100">
+                              <input 
+                                type="checkbox" className="w-4 h-4 rounded text-blue-600"
+                                checked={clinical.periodontal.data[id]?.[row.key as keyof typeof clinical.periodontal.data[number]] as boolean || false}
+                                onChange={e => {
+                                  const current = clinical.periodontal.data[id] || { bleeding: false, attachmentLoss: false, pocket: false, stains: false, calculus: 0 };
+                                  setClinical({...clinical, periodontal: {...clinical.periodontal, data: {...clinical.periodontal.data, [id]: {...current, [row.key]: e.target.checked}}}});
+                                }}
+                              />
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                      <tr className="hover:bg-slate-50 transition-all">
+                        <td className="p-3 text-xs font-bold text-slate-700 text-left sticky left-0 bg-white z-10 border-r border-slate-100">Skor Kalkulus (0-3)</td>
+                        {[18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28].map(id => (
+                          <td key={id} className="p-3 border-l border-slate-100">
+                            <input 
+                              type="number" min="0" max="3"
+                              className="w-10 p-1 text-center bg-slate-50 border border-slate-200 rounded text-xs"
+                              value={clinical.periodontal.data[id]?.calculus || 0}
+                              onChange={e => {
+                                const current = clinical.periodontal.data[id] || { bleeding: false, attachmentLoss: false, pocket: false, stains: false, calculus: 0 };
+                                setClinical({...clinical, periodontal: {...clinical.periodontal, data: {...clinical.periodontal.data, [id]: {...current, calculus: parseInt(e.target.value) || 0}}}});
+                              }}
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden overflow-x-auto custom-scrollbar">
+                  <table className="w-full text-center border-collapse min-w-[1200px]">
+                    <thead>
+                      <tr className="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                        <th className="p-3 text-left sticky left-0 bg-slate-50 z-10 w-48">Pemeriksaan (Lower)</th>
+                        {[48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38].map(id => (
+                          <th key={id} className="p-3 border-l border-slate-100">{id}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {[
+                        { label: 'Bleeding on probing', key: 'bleeding' },
+                        { label: 'Attachment loss > 1mm', key: 'attachmentLoss' },
+                        { label: 'Pocket > 4mm', key: 'pocket' },
+                        { label: 'Extrinsic Stains', key: 'stains' }
+                      ].map(row => (
+                        <tr key={row.key} className="hover:bg-slate-50 transition-all">
+                          <td className="p-3 text-xs font-bold text-slate-700 text-left sticky left-0 bg-white z-10 border-r border-slate-100">{row.label}</td>
+                          {[48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38].map(id => (
+                            <td key={id} className="p-3 border-l border-slate-100">
+                              <input 
+                                type="checkbox" className="w-4 h-4 rounded text-blue-600"
+                                checked={clinical.periodontal.data[id]?.[row.key as keyof typeof clinical.periodontal.data[number]] as boolean || false}
+                                onChange={e => {
+                                  const current = clinical.periodontal.data[id] || { bleeding: false, attachmentLoss: false, pocket: false, stains: false, calculus: 0 };
+                                  setClinical({...clinical, periodontal: {...clinical.periodontal, data: {...clinical.periodontal.data, [id]: {...current, [row.key]: e.target.checked}}}});
+                                }}
+                              />
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                      <tr className="hover:bg-slate-50 transition-all">
+                        <td className="p-3 text-xs font-bold text-slate-700 text-left sticky left-0 bg-white z-10 border-r border-slate-100">Skor Kalkulus (0-3)</td>
+                        {[48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38].map(id => (
+                          <td key={id} className="p-3 border-l border-slate-100">
+                            <input 
+                              type="number" min="0" max="3"
+                              className="w-10 p-1 text-center bg-slate-50 border border-slate-200 rounded text-xs"
+                              value={clinical.periodontal.data[id]?.calculus || 0}
+                              onChange={e => {
+                                const current = clinical.periodontal.data[id] || { bleeding: false, attachmentLoss: false, pocket: false, stains: false, calculus: 0 };
+                                setClinical({...clinical, periodontal: {...clinical.periodontal, data: {...clinical.periodontal.data, [id]: {...current, calculus: parseInt(e.target.value) || 0}}}});
+                              }}
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="flex justify-end">
+                  <div className="p-6 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-100 min-w-[200px]">
+                    <h4 className="text-sm font-bold opacity-80 uppercase tracking-wider">Jumlah Skor Kalkulus</h4>
+                    <p className="text-3xl font-black">
+                      {Object.values(clinical.periodontal.data).reduce((acc, curr) => acc + (curr.calculus || 0), 0)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="flex justify-end gap-3 pt-6 border-t border-slate-100 print:hidden">
               <button 
-                onClick={() => { if(confirm('Batalkan perubahan pemeriksaan klinis?')) { setClinical({ ekstraOral: { limfe: 'Normal', tmj: 'Normal', wajah: 'Simetris' }, intraOral: { gingiva: '', mukosa: '', lidah: '', palatum: '' } }); } }}
+                onClick={() => { 
+                  if(confirm('Batalkan perubahan pemeriksaan klinis?')) { 
+                    setClinical({
+                      ekstraOral: { skinFace: 'Normal', skinNeck: 'Normal', vermilionBorders: 'Normal', parotidGlands: 'Normal', lymphNodes: { anteriorCervical: 'Normal', posteriorCervical: 'Normal', submental: 'Normal', submandibular: 'Normal', supraclavicular: 'Normal' }, tmj: 'Normal', wajah: 'Simetris', notes: '' },
+                      intraOral: { 
+                        labialMucosa: 'Normal', labialVestibules: 'Normal', anteriorGingivae: 'Normal', buccalVestibules: 'Normal', buccalGingivae: 'Normal', 
+                        tongueDorsal: 'Normal', tongueVentral: 'Normal', tongueLateral: 'Normal', lingualTonsils: 'Normal', floorOfMouth: 'Normal', 
+                        lingualGingivae: 'Normal', tonsillarPillars: 'Normal', pharyngealWall: 'Normal', softPalate: 'Normal', uvula: 'Normal', 
+                        hardPalate: 'Normal', palatalGingivae: 'Normal', submandibularGlands: 'Normal', notes: '' 
+                      },
+                      ohis: { gigiIndex: [16, 11, 26, 36, 31, 46], debrisIndex: [0, 0, 0, 0, 0, 0], calculusIndex: [0, 0, 0, 0, 0, 0] },
+                      plaqueControl: { data: {}, score: 0, kategori: '' },
+                      periodontal: { data: {}, jumlahSkor: 0 }
+                    });
+                    setClinicalSubTab('ohis'); 
+                  } 
+                }}
                 className="px-6 py-3 border border-slate-200 rounded-xl font-bold text-slate-600 hover:bg-slate-50 transition-all"
               >
-                Batal
-              </button>
-              <button 
-                onClick={handlePrint}
-                className="flex items-center gap-2 px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all"
-              >
-                <Printer size={18} />
-                Cetak
+                Reset Tab
               </button>
               <button 
                 onClick={onSave}
@@ -1770,208 +3848,149 @@ const MedicalRecord = ({
           </div>
         )}
 
-        {activeTab === 'odontogram' && (
-          <div className="space-y-8">
-            <div className="flex flex-wrap justify-center gap-6 p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
-              {[
-                { status: 'healthy', label: 'Sehat', color: 'bg-white border-slate-400' },
-                { status: 'caries', label: 'Karies', color: 'bg-red-500' },
-                { status: 'filled', label: 'Tambalan', color: 'bg-blue-500' },
-                { status: 'missing', label: 'Hilang', color: 'bg-slate-200' },
-                { status: 'impacted', label: 'Impaksi', color: 'bg-amber-500' },
-              ].map(item => (
-                <div key={item.status} className="flex items-center gap-2">
-                  <div className={cn("w-4 h-4 rounded border", item.color)} />
-                  <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">{item.label}</span>
-                </div>
-              ))}
-            </div>
-            
-            <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-xl overflow-x-auto">
-              <div className="min-w-[800px] flex flex-col items-center gap-12">
-                {/* Upper Adult */}
-                <div className="flex flex-col items-center gap-4">
-                  <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">Rahang Atas (Dewasa)</span>
-                  <div className="flex gap-2">
-                    {ADULT_TEETH_TOP.map(id => (
-                      <Tooth key={id} id={id} data={toothData[id]} onSurfaceClick={handleSurfaceClick} />
-                    ))}
-                  </div>
-                </div>
 
-                {/* Upper Child */}
-                <div className="flex flex-col items-center gap-4">
-                  <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">Rahang Atas (Anak)</span>
-                  <div className="flex gap-2">
-                    {CHILD_TEETH_TOP.map(id => (
-                      <Tooth key={id} id={id} data={toothData[id]} onSurfaceClick={handleSurfaceClick} />
-                    ))}
-                  </div>
-                </div>
-
-                <div className="w-full h-px bg-slate-100 relative">
-                  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-4 text-[10px] font-bold text-slate-300 uppercase tracking-widest">Garis Median</div>
-                </div>
-
-                {/* Lower Child */}
-                <div className="flex flex-col items-center gap-4">
-                  <div className="flex gap-2">
-                    {CHILD_TEETH_BOTTOM.map(id => (
-                      <Tooth key={id} id={id} data={toothData[id]} onSurfaceClick={handleSurfaceClick} />
-                    ))}
-                  </div>
-                  <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">Rahang Bawah (Anak)</span>
-                </div>
-
-                {/* Lower Adult */}
-                <div className="flex flex-col items-center gap-4">
-                  <div className="flex gap-2">
-                    {ADULT_TEETH_BOTTOM.map(id => (
-                      <Tooth key={id} id={id} data={toothData[id]} onSurfaceClick={handleSurfaceClick} />
-                    ))}
-                  </div>
-                  <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">Rahang Bawah (Dewasa)</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Tooth Findings Table (from PDF) */}
-            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-4">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Temuan Jaringan Keras (Kiri)</h4>
-                <div className="grid grid-cols-1 gap-2">
-                  {[...ADULT_TEETH_TOP.slice(0, 8), ...ADULT_TEETH_BOTTOM.slice(8)].map(id => (
-                    <div key={id} className="flex items-center gap-3 p-2 bg-white rounded-xl border border-slate-100 shadow-sm">
-                      <span className="w-8 text-xs font-black text-blue-600">{id}</span>
-                      <input 
-                        type="text" placeholder="Temuan..."
-                        className="flex-1 bg-transparent border-none focus:ring-0 text-sm"
-                        value={toothNotes[id] || ''}
-                        onChange={e => setToothNotes(prev => ({ ...prev, [id]: e.target.value }))}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="space-y-4">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Temuan Jaringan Keras (Kanan)</h4>
-                <div className="grid grid-cols-1 gap-2">
-                  {[...ADULT_TEETH_TOP.slice(8), ...ADULT_TEETH_BOTTOM.slice(0, 8)].map(id => (
-                    <div key={id} className="flex items-center gap-3 p-2 bg-white rounded-xl border border-slate-100 shadow-sm">
-                      <span className="w-8 text-xs font-black text-blue-600">{id}</span>
-                      <input 
-                        type="text" placeholder="Temuan..."
-                        className="flex-1 bg-transparent border-none focus:ring-0 text-sm"
-                        value={toothNotes[id] || ''}
-                        onChange={e => setToothNotes(prev => ({ ...prev, [id]: e.target.value }))}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-12 p-6 bg-slate-50 rounded-2xl border border-slate-200">
-              <h4 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
-                <Activity size={18} />
-                Indeks Kesehatan Gigi (OHI-S)
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-4">
-                  <p className="text-xs font-bold text-slate-500">Debris Index (DI)</p>
-                  <div className="grid grid-cols-6 gap-2">
-                    {indices.di.map((val, i) => (
-                      <input 
-                        key={i} type="number" min="0" max="3"
-                        className="w-full p-2 text-center bg-white border border-slate-200 rounded-lg text-sm"
-                        value={val}
-                        onChange={e => {
-                          const newDi = [...indices.di];
-                          newDi[i] = parseInt(e.target.value) || 0;
-                          setIndices({...indices, di: newDi});
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <p className="text-xs font-bold text-slate-500">Calculus Index (CI)</p>
-                  <div className="grid grid-cols-6 gap-2">
-                    {indices.ci.map((val, i) => (
-                      <input 
-                        key={i} type="number" min="0" max="3"
-                        className="w-full p-2 text-center bg-white border border-slate-200 rounded-lg text-sm"
-                        value={val}
-                        onChange={e => {
-                          const newCi = [...indices.ci];
-                          newCi[i] = parseInt(e.target.value) || 0;
-                          setIndices({...indices, ci: newCi});
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <div className="mt-6 p-4 bg-blue-600 rounded-xl text-white flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] font-bold uppercase opacity-80">Skor OHI-S Akhir</p>
-                  <p className="text-2xl font-black">{calculateOHIS()}</p>
-                </div>
-                <div className="text-right text-[10px] font-medium opacity-80">
-                  Rumus: (Total DI / 6) + (Total CI / 6)
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 pt-6 border-t border-slate-100 print:hidden">
-              <button 
-                onClick={() => { if(confirm('Batalkan perubahan odontogram?')) { setToothData({}); setToothNotes({}); setIndices({ di: [0, 0, 0, 0, 0, 0], ci: [0, 0, 0, 0, 0, 0] }); } }}
-                className="px-6 py-3 border border-slate-200 rounded-xl font-bold text-slate-600 hover:bg-slate-50 transition-all"
-              >
-                Batal
-              </button>
-              <button 
-                onClick={handlePrint}
-                className="flex items-center gap-2 px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all"
-              >
-                <Printer size={18} />
-                Cetak
-              </button>
-              <button 
-                onClick={onSave}
-                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
-              >
-                <Save size={18} />
-                Simpan Data Odontogram
-              </button>
-            </div>
-          </div>
-        )}
 
         {activeTab === 'diagnosis' && (
           <div className="space-y-8">
+            {history.length > 0 && (
+              <div className="p-6 bg-amber-50 rounded-2xl border border-amber-100 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-amber-100 text-amber-600 rounded-lg">
+                    <History size={20} />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-amber-900">Diagnosa Kunjungan Sebelumnya ({new Date(history[0].date).toLocaleDateString('id-ID')})</h4>
+                    <p className="text-[10px] text-amber-500 font-medium tracking-wider uppercase">Referensi untuk evaluasi perkembangan</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div className="p-3 bg-white rounded-xl border border-amber-50">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Kebutuhan Tidak Terpenuhi</p>
+                    <p className="text-slate-700">{history[0].diagnosis.unmetNeeds || '-'}</p>
+                  </div>
+                  <div className="p-3 bg-white rounded-xl border border-amber-50">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Rekomendasi Sebelumnya</p>
+                    <p className="text-slate-700">{history[0].diagnosis.nextTreatmentRecommendation || '-'}</p>
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="space-y-4">
-              <h3 className="text-lg font-bold text-slate-900">Diagnosa Terapis Gigi & Mulut (8 Kebutuhan Manusia)</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold text-slate-900">Diagnosa Terapis Gigi & Mulut (8 Kebutuhan Manusia)</h3>
+                <button 
+                  onClick={() => setShowDiagnosisGuidelines(!showDiagnosisGuidelines)}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-xs font-bold hover:bg-blue-100 transition-all"
+                >
+                  <BookOpen size={14} />
+                  {showDiagnosisGuidelines ? 'Tutup Pedoman' : 'Lihat Pedoman Diagnosa'}
+                </button>
+              </div>
+
+              {showDiagnosisGuidelines && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6"
+                >
+                  {Object.entries(HUMAN_NEEDS_GUIDELINES).map(([key, value]) => (
+                    <div key={key} className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
+                      <h5 className="text-[10px] font-black text-blue-700 uppercase mb-1">{value.title}</h5>
+                      <p className="text-[10px] text-slate-600 leading-relaxed">{value.guideline}</p>
+                    </div>
+                  ))}
+                </motion.div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {HUMAN_NEEDS.map((need, i) => (
-                  <button
-                    key={i}
-                    onClick={() => {
-                      if (selectedNeeds.includes(need)) {
-                        setSelectedNeeds(selectedNeeds.filter(n => n !== need));
-                      } else {
-                        setSelectedNeeds([...selectedNeeds, need]);
-                      }
-                    }}
-                    className={cn(
-                      "p-4 text-left text-sm rounded-xl border transition-all",
-                      selectedNeeds.includes(need)
-                        ? "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-100"
-                        : "bg-white border-slate-100 text-slate-600 hover:border-blue-200"
-                    )}
-                  >
-                    {need}
-                  </button>
+                {[
+                  { id: 'perlindunganResiko', label: '1) Perlindungan dari Resiko Kesehatan' },
+                  { id: 'bebasKetakutan', label: '2) Bebas dari Ketakutan/Stress' },
+                  { id: 'kesanWajahSehat', label: '3) Kesan Wajah yang Sehat' },
+                  { id: 'keutuhanMukosa', label: '4) Keutuhan Kulit & Membran Mukosa (Leher & Kepala)' },
+                  { id: 'kondisiBiologis', label: '5) Kondisi Biologis & Fungsi Gigi Geligi yang Baik' },
+                  { id: 'konseptualisasi', label: '6) Konseptualisasi & Pemecahan Masalah' },
+                  { id: 'bebasNyeri', label: '7) Bebas dari Nyeri pada Kepala & Leher' },
+                  { id: 'tanggungJawab', label: '8) Tanggung Jawab terhadap Kesehatan Gigi & Mulut' }
+                ].map((need) => (
+                  <div key={need.id} className="space-y-2">
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">{need.label}</label>
+                    <textarea 
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[60px] text-sm"
+                      value={(dentalHygieneDiagnosis.categories as any)[need.id]}
+                      onChange={e => setDentalHygieneDiagnosis({
+                        ...dentalHygieneDiagnosis, 
+                        categories: { ...dentalHygieneDiagnosis.categories, [need.id]: e.target.value }
+                      })}
+                      placeholder="Catatan diagnosa..."
+                    />
+                  </div>
                 ))}
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6">
+              <h3 className="text-lg font-bold text-slate-900 border-b pb-2">Diagnosis Askesgilut (Dental Hygiene Diagnosis)</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Kebutuhan yang tidak terpenuhi</label>
+                  <textarea 
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[80px] text-sm"
+                    value={dentalHygieneDiagnosis.unmetNeeds}
+                    onChange={e => setDentalHygieneDiagnosis({...dentalHygieneDiagnosis, unmetNeeds: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Penyebab</label>
+                  <textarea 
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[80px] text-sm"
+                    value={dentalHygieneDiagnosis.cause}
+                    onChange={e => setDentalHygieneDiagnosis({...dentalHygieneDiagnosis, cause: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Tanda-tanda dan gejala</label>
+                  <textarea 
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[80px] text-sm"
+                    value={dentalHygieneDiagnosis.signsSymptoms}
+                    onChange={e => setDentalHygieneDiagnosis({...dentalHygieneDiagnosis, signsSymptoms: e.target.value})}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Tujuan Yang Berpusat Pada Klien</label>
+                  <textarea 
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[80px] text-sm"
+                    value={dentalHygieneDiagnosis.clientGoals}
+                    onChange={e => setDentalHygieneDiagnosis({...dentalHygieneDiagnosis, clientGoals: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Intervensi Askesgilut</label>
+                  <textarea 
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[80px] text-sm"
+                    value={dentalHygieneDiagnosis.interventions}
+                    onChange={e => setDentalHygieneDiagnosis({...dentalHygieneDiagnosis, interventions: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Pernyataan Evaluativ</label>
+                  <textarea 
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[80px] text-sm"
+                    value={dentalHygieneDiagnosis.evaluativeStatement}
+                    onChange={e => setDentalHygieneDiagnosis({...dentalHygieneDiagnosis, evaluativeStatement: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Rekomendasi Perawatan Selanjutnya</label>
+                  <textarea 
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[80px] text-sm"
+                    value={dentalHygieneDiagnosis.nextTreatmentRecommendation}
+                    onChange={e => setDentalHygieneDiagnosis({...dentalHygieneDiagnosis, nextTreatmentRecommendation: e.target.value})}
+                    placeholder="Contoh: Kontrol 6 bulan lagi, Rujuk ke spesialis..."
+                  />
+                </div>
               </div>
             </div>
 
@@ -2024,7 +4043,15 @@ const MedicalRecord = ({
             </div>
             <div className="flex justify-end gap-3 pt-6 border-t border-slate-100 print:hidden">
               <button 
-                onClick={() => { if(confirm('Batalkan perubahan diagnosa?')) { setSelectedNeeds([]); } }}
+                onClick={() => { 
+                  if(confirm('Batalkan perubahan diagnosa?')) { 
+                    setSelectedNeeds([]); 
+                    setDentalHygieneDiagnosis({
+                      categories: { perlindunganResiko: '', bebasKetakutan: '', kesanWajahSehat: '', keutuhanMukosa: '', kondisiBiologis: '', konseptualisasi: '', bebasNyeri: '', tanggungJawab: '' },
+                      unmetNeeds: '', cause: '', signsSymptoms: '', clientGoals: '', interventions: '', evaluativeStatement: '', nextTreatmentRecommendation: ''
+                    });
+                  } 
+                }}
                 className="px-6 py-3 border border-slate-200 rounded-xl font-bold text-slate-600 hover:bg-slate-50 transition-all"
               >
                 Batal
@@ -2047,51 +4074,102 @@ const MedicalRecord = ({
           </div>
         )}
 
-        {activeTab === 'soapie' && (
-          <div className="space-y-6">
-            <h3 className="text-lg font-bold text-slate-900">Catatan Perkembangan (SOAPIE)</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {[
-                { id: 's', label: 'S (Subjektif)', placeholder: 'Keluhan pasien...' },
-                { id: 'o', label: 'O (Objektif)', placeholder: 'Hasil pemeriksaan fisik/klinis...' },
-                { id: 'a', label: 'A (Assessment)', placeholder: 'Kesimpulan diagnosa...' },
-                { id: 'p', label: 'P (Planning)', placeholder: 'Rencana tindakan...' },
-                { id: 'i', label: 'I (Intervensi)', placeholder: 'Tindakan yang dilakukan...' },
-                { id: 'e', label: 'E (Evaluasi)', placeholder: 'Hasil setelah tindakan...' },
-              ].map(item => (
-                <div key={item.id}>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">{item.label}</label>
-                  <textarea 
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[80px]"
-                    placeholder={item.placeholder}
-                    value={(soapie as any)[item.id]}
-                    onChange={e => setSoapie({...soapie, [item.id]: e.target.value})}
-                  />
+
+
+        {activeTab === 'evaluation' && (
+          <div className="space-y-8">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-slate-900">Evaluasi & Perkembangan Pasien</h3>
+              <button 
+                onClick={handleAIAnalysis}
+                disabled={isAnalyzing}
+                className="px-6 py-3 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700 transition-all disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-purple-100"
+              >
+                {isAnalyzing ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Activity size={18} />}
+                Analisis Perkembangan AI
+              </button>
+            </div>
+
+            {history.length > 0 ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="space-y-6">
+                  <div className="p-6 bg-blue-50 rounded-3xl border border-blue-100">
+                    <h4 className="text-sm font-black text-blue-900 uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <History size={16} />
+                      Kunjungan Awal ({new Date(history[history.length - 1].date).toLocaleDateString('id-ID')})
+                    </h4>
+                    <div className="space-y-4 text-sm">
+                      <p><span className="font-bold text-blue-700">Diagnosa:</span> {history[history.length - 1].diagnosis.unmetNeeds || '-'}</p>
+                      <p><span className="font-bold text-blue-700">Tindakan:</span> {history[history.length - 1].treatment.map((id: string) => TREATMENTS_2023.find(t => t.id === id)?.name).join(', ') || '-'}</p>
+                      <div className="grid grid-cols-3 gap-2 pt-2">
+                        <div className="p-2 bg-white rounded-lg border border-blue-100 text-center">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase">Tensi</p>
+                          <p className="font-black text-blue-600">{history[history.length - 1].vitalSigns.tensi || '-'}</p>
+                        </div>
+                        <div className="p-2 bg-white rounded-lg border border-blue-100 text-center">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase">Suhu</p>
+                          <p className="font-black text-blue-600">{history[history.length - 1].vitalSigns.suhu || '-'}°C</p>
+                        </div>
+                        <div className="p-2 bg-white rounded-lg border border-blue-100 text-center">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase">BB</p>
+                          <p className="font-black text-blue-600">{history[history.length - 1].vitalSigns.bb || '-'}kg</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-6 bg-emerald-50 rounded-3xl border border-emerald-100">
+                    <h4 className="text-sm font-black text-emerald-900 uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <CheckCircle2 size={16} />
+                      Kunjungan Terakhir ({new Date().toLocaleDateString('id-ID')})
+                    </h4>
+                    <div className="space-y-4 text-sm">
+                      <p><span className="font-bold text-emerald-700">Diagnosa Saat Ini:</span> {dentalHygieneDiagnosis.unmetNeeds || '-'}</p>
+                      <p><span className="font-bold text-emerald-700">Tindakan Direncanakan:</span> {selectedTreatments.map(id => TREATMENTS_2023.find(t => t.id === id)?.name).join(', ') || '-'}</p>
+                      <div className="grid grid-cols-3 gap-2 pt-2">
+                        <div className="p-2 bg-white rounded-lg border border-emerald-100 text-center">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase">Tensi</p>
+                          <p className="font-black text-emerald-600">{anamnesis.vitalSigns.tensi || '-'}</p>
+                        </div>
+                        <div className="p-2 bg-white rounded-lg border border-emerald-100 text-center">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase">Suhu</p>
+                          <p className="font-black text-emerald-600">{anamnesis.vitalSigns.suhu || '-'}°C</p>
+                        </div>
+                        <div className="p-2 bg-white rounded-lg border border-emerald-100 text-center">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase">BB</p>
+                          <p className="font-black text-emerald-600">{anamnesis.vitalSigns.bb || '-'}kg</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              ))}
-            </div>
-            <div className="flex justify-end gap-3 pt-6 border-t border-slate-100 print:hidden">
-              <button 
-                onClick={() => { if(confirm('Batalkan perubahan SOAPIE?')) { setSoapie({ s: '', o: '', a: '', p: '', i: '', e: '' }); } }}
-                className="px-6 py-3 border border-slate-200 rounded-xl font-bold text-slate-600 hover:bg-slate-50 transition-all"
-              >
-                Batal
-              </button>
-              <button 
-                onClick={handlePrint}
-                className="flex items-center gap-2 px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all"
-              >
-                <Printer size={18} />
-                Cetak
-              </button>
-              <button 
-                onClick={onSave}
-                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
-              >
-                <Save size={18} />
-                Simpan Data SOAPIE
-              </button>
-            </div>
+
+                <div className="space-y-6">
+                  <div className="p-8 bg-white rounded-3xl border border-slate-100 shadow-xl shadow-slate-100 min-h-[400px]">
+                    <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-6 border-b pb-4 flex items-center gap-2">
+                      <Activity size={18} className="text-purple-600" />
+                      Hasil Analisis AI & Evaluasi Terperinci
+                    </h4>
+                    {aiAnalysis ? (
+                      <div className="prose prose-sm max-w-none prose-slate">
+                        <Markdown>{aiAnalysis}</Markdown>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-64 text-center space-y-4">
+                        <div className="p-4 bg-purple-50 text-purple-600 rounded-full">
+                          <Activity size={32} />
+                        </div>
+                        <p className="text-slate-500 font-medium">Klik tombol "Analisis Perkembangan AI" untuk mendapatkan evaluasi mendalam.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="p-12 text-center bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
+                <p className="text-slate-500 font-bold">Belum ada riwayat kunjungan untuk dibandingkan.</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -2102,7 +4180,7 @@ const MedicalRecord = ({
               <div className="text-right">
                 <p className="text-xs font-bold text-slate-400 uppercase">Total Estimasi</p>
                 <p className="text-2xl font-black text-blue-600">
-                  Rp {selectedTreatments.reduce((sum, id) => sum + (TREATMENTS_2023.find(t => t.id === id)?.price || 0), 0).toLocaleString('id-ID')}
+                  Rp {selectedPatient.insurance === 'BPJS' ? '0 (BPJS)' : selectedTreatments.reduce((sum, id) => sum + (TREATMENTS_2023.find(t => t.id === id)?.price || 0), 0).toLocaleString('id-ID')}
                 </p>
               </div>
             </div>
@@ -2129,7 +4207,9 @@ const MedicalRecord = ({
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t.category}</p>
                     <p className="font-bold text-slate-800">{t.name}</p>
                   </div>
-                  <p className="font-black text-blue-600">Rp {t.price.toLocaleString('id-ID')}</p>
+                  <p className="font-black text-blue-600">
+                    {selectedPatient.insurance === 'BPJS' ? 'Gratis (BPJS)' : `Rp ${t.price.toLocaleString('id-ID')}`}
+                  </p>
                 </button>
               ))}
             </div>
@@ -2160,23 +4240,58 @@ const MedicalRecord = ({
 
         {activeTab === 'consent' && (
           <div className="space-y-8">
-            <div className="p-6 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
+            <div className="p-6 bg-slate-50 rounded-2xl border border-slate-200 space-y-6">
               <h3 className="text-lg font-bold text-slate-900 text-center">Persetujuan Tindakan Medik (Informed Consent)</h3>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                Saya yang bertanda tangan di bawah ini menyatakan setuju untuk dilakukan tindakan medik dental sesuai dengan penjelasan yang telah diberikan oleh tenaga medis. Saya memahami risiko dan manfaat dari tindakan tersebut.
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Nama Pasien / Wali</label>
+                  <input 
+                    type="text" className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm"
+                    value={consent.patientName}
+                    onChange={e => setConsent({...consent, patientName: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Hubungan dengan Pasien</label>
+                  <input 
+                    type="text" className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm"
+                    value={consent.relationship}
+                    onChange={e => setConsent({...consent, relationship: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Nama Saksi</label>
+                  <input 
+                    type="text" className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm"
+                    value={consent.witnessName}
+                    onChange={e => setConsent({...consent, witnessName: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Nama Operator</label>
+                  <input 
+                    type="text" className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm"
+                    value={consent.operatorName}
+                    onChange={e => setConsent({...consent, operatorName: e.target.value})}
+                  />
+                </div>
+              </div>
+              <p className="text-sm text-slate-600 leading-relaxed bg-white p-4 rounded-xl border border-slate-100 italic">
+                "Saya yang bertanda tangan di bawah ini menyatakan setuju untuk dilakukan tindakan medik dental sesuai dengan penjelasan yang telah diberikan oleh tenaga medis. Saya memahami risiko dan manfaat dari tindakan tersebut."
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
               {[
                 { ref: sigDentist, label: 'Dokter Gigi' },
                 { ref: sigTherapist, label: 'Terapis Gigi' },
-                { ref: sigPatient, label: 'Pasien' },
-                { ref: sigGuardian, label: 'Wali/Orang Tua' },
+                { ref: sigPatient, label: 'Pasien/Wali' },
+                { ref: sigWitness, label: 'Saksi' },
+                { ref: sigGuardian, label: 'Orang Tua' },
               ].map((item, i) => (
                 <div key={i} className="space-y-2">
-                  <p className="text-xs font-bold text-slate-500 text-center uppercase">{item.label}</p>
-                  <div className="bg-white border border-slate-200 rounded-xl overflow-hidden h-32">
+                  <p className="text-[10px] font-bold text-slate-500 text-center uppercase tracking-widest">{item.label}</p>
+                  <div className="bg-white border border-slate-200 rounded-xl overflow-hidden h-32 shadow-sm">
                     <SignatureCanvas 
                       ref={item.ref}
                       penColor="navy"
@@ -2187,14 +4302,14 @@ const MedicalRecord = ({
                     onClick={() => item.ref.current?.clear()}
                     className="w-full py-1 text-[10px] font-bold text-red-500 hover:bg-red-50 rounded transition-colors"
                   >
-                    Hapus Tanda Tangan
+                    Hapus
                   </button>
                 </div>
               ))}
             </div>
             <div className="flex justify-end gap-3 pt-6 border-t border-slate-100 print:hidden">
               <button 
-                onClick={() => { if(confirm('Batalkan Informed Consent?')) { sigDentist.current?.clear(); sigTherapist.current?.clear(); sigPatient.current?.clear(); sigGuardian.current?.clear(); } }}
+                onClick={() => { if(confirm('Batalkan Informed Consent?')) { sigDentist.current?.clear(); sigTherapist.current?.clear(); sigPatient.current?.clear(); sigGuardian.current?.clear(); sigWitness.current?.clear(); } }}
                 className="px-6 py-3 border border-slate-200 rounded-xl font-bold text-slate-600 hover:bg-slate-50 transition-all"
               >
                 Batal
@@ -2225,21 +4340,36 @@ const MedicalRecord = ({
                 <p className="text-sm font-bold text-blue-600">DentaCare Digital RME System</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-8 text-sm">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 text-sm">
                 <div className="space-y-2">
                   <p><span className="font-bold text-slate-400 uppercase text-[10px]">Nama Pasien:</span><br/><span className="font-bold">{selectedPatient.name}</span></p>
                   <p><span className="font-bold text-slate-400 uppercase text-[10px]">No. RM:</span><br/><span className="font-bold">{selectedPatient.mrNumber}</span></p>
                 </div>
                 <div className="space-y-2">
+                  <p><span className="font-bold text-slate-400 uppercase text-[10px]">Usia / Gender:</span><br/><span className="font-bold">{calculateAge(selectedPatient.birthDate)} Thn / {selectedPatient.gender}</span></p>
+                  <p><span className="font-bold text-slate-400 uppercase text-[10px]">Gol. Darah:</span><br/><span className="font-bold">{selectedPatient.bloodType || '-'}</span></p>
+                </div>
+                <div className="space-y-2">
                   <p><span className="font-bold text-slate-400 uppercase text-[10px]">Tanggal:</span><br/><span className="font-bold">{new Date().toLocaleDateString('id-ID')}</span></p>
                   <p><span className="font-bold text-slate-400 uppercase text-[10px]">OHI-S:</span><br/><span className="font-bold">{calculateOHIS()}</span></p>
+                </div>
+                <div className="space-y-2">
+                  <p><span className="font-bold text-slate-400 uppercase text-[10px]">Plaque Score:</span><br/><span className="font-bold">
+                    {(() => {
+                      const entries = Object.values(clinical.plaqueControl.data);
+                      const plaqueCount = entries.reduce((acc, curr) => acc + (curr.buccal ? 1 : 0) + (curr.lingual ? 1 : 0) + (curr.mesial ? 1 : 0) + (curr.distal ? 1 : 0), 0);
+                      const totalCount = entries.length * 4;
+                      return totalCount > 0 ? ((plaqueCount / totalCount) * 100).toFixed(1) : "0.0";
+                    })()}%
+                  </span></p>
+                  <p><span className="font-bold text-slate-400 uppercase text-[10px]">Jenis Pembayaran:</span><br/><span className="font-bold">{selectedPatient.insurance}</span></p>
                 </div>
               </div>
 
               <div className="space-y-4">
                 <h4 className="font-black text-slate-900 border-l-4 border-blue-600 pl-3 uppercase text-xs">Ringkasan Pemeriksaan</h4>
                 <div className="grid grid-cols-1 gap-4 text-sm bg-slate-50 p-4 rounded-2xl">
-                  <p><span className="font-bold">Keluhan:</span> {anamnesis.keluhanUtama || '-'}</p>
+                  <p><span className="font-bold">Keluhan:</span> {anamnesis.dentalHistory.alasanKunjungan || '-'}</p>
                   <p><span className="font-bold">Diagnosa:</span> {selectedNeeds.join(', ') || '-'}</p>
                   <p><span className="font-bold">Tindakan:</span> {selectedTreatments.map(id => TREATMENTS_2023.find(t => t.id === id)?.name).join(', ') || '-'}</p>
                 </div>
@@ -2247,8 +4377,12 @@ const MedicalRecord = ({
 
               <div className="flex justify-between items-end pt-8">
                 <div className="text-center">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-12">Petugas Pemeriksa</p>
-                  <p className="font-bold text-slate-900 border-t border-slate-900 pt-1">Drg. Rizky Ramadhan</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-12">Dokter Gigi yang Melakukan Pemeriksaan</p>
+                  <p className="font-bold text-slate-900 border-t border-slate-900 pt-1">{selectedPatient.examiningDentist || 'Drg. Rizky Ramadhan'}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-12">Terapis Gigi dan Mulut yang Melakukan Pemeriksaan</p>
+                  <p className="font-bold text-slate-900 border-t border-slate-900 pt-1">{selectedPatient.examiningTherapist || '-'}</p>
                 </div>
                 <div className="text-right space-y-2">
                   <button 
@@ -2295,11 +4429,11 @@ const MedicalRecord = ({
               <div className="flex items-center gap-4">
                 <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total Kunjungan: {history.length}</div>
                 <button 
-                  onClick={() => setIsAppointmentModalOpen(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-all"
+                  onClick={handleNewVisit}
+                  className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-all"
                 >
                   <Plus size={14} />
-                  Tambah Kunjungan
+                  Kunjungan Baru
                 </button>
               </div>
             </div>
@@ -2311,15 +4445,27 @@ const MedicalRecord = ({
                       <Calendar size={14} className="text-blue-600" />
                       <span className="text-sm font-black text-slate-900">{new Date(item.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
                     </div>
-                    <p className="text-sm text-slate-600"><span className="font-bold text-slate-900">Diagnosa:</span> {item.diagnosis}</p>
-                    <p className="text-sm text-slate-600"><span className="font-bold text-slate-900">Tindakan:</span> {item.treatment}</p>
+                    <p className="text-sm text-slate-600"><span className="font-bold text-slate-900">Diagnosa:</span> {item.diagnosis.unmetNeeds || '-'}</p>
+                    <p className="text-sm text-slate-600"><span className="font-bold text-slate-900">Tindakan:</span> {item.treatment.map((id: string) => TREATMENTS_2023.find(t => t.id === id)?.name).join(', ') || '-'}</p>
                   </div>
                   <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">Dokter Pemeriksa</p>
-                      <p className="text-sm font-bold text-slate-700">{item.doctor}</p>
+                    <div className="flex gap-4">
+                      <div className="text-right">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Dokter</p>
+                        <p className="text-sm font-bold text-slate-700">{item.doctor}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Terapis</p>
+                        <p className="text-sm font-bold text-slate-700">{item.therapist || '-'}</p>
+                      </div>
                     </div>
-                    <button className="p-3 bg-white border border-slate-200 rounded-xl text-blue-600 hover:bg-blue-50 transition-all shadow-sm">
+                    <button 
+                      onClick={() => {
+                        // Logic to view detail
+                        setIsPreviousVisitModalOpen(true);
+                      }}
+                      className="p-3 bg-white border border-slate-200 rounded-xl text-blue-600 hover:bg-blue-50 transition-all shadow-sm"
+                    >
                       <FileText size={18} />
                     </button>
                   </div>
@@ -2486,38 +4632,75 @@ const Appointments = ({
   patients, 
   appointments, 
   onAddAppointment,
+  onUpdateAppointment,
+  onDeleteAppointment,
+  onRemindAppointment,
   onSave
 }: { 
   patients: Patient[], 
   appointments: Appointment[],
   onAddAppointment: (apt: Omit<Appointment, 'id' | 'status'>) => void,
+  onUpdateAppointment: (apt: Appointment) => void,
+  onDeleteAppointment: (id: number) => void,
+  onRemindAppointment: (apt: Appointment) => void,
   onSave: () => void
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
+  const [selectedDate, setSelectedDate] = useState<number>(new Date().getDate());
 
   const [formData, setFormData] = useState({
     patientId: '',
     date: '',
     time: '',
-    type: 'Pemeriksaan Rutin'
+    type: 'Pemeriksaan Rutin',
+    status: 'pending' as 'pending' | 'confirmed'
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const patient = patients.find(p => p.id === formData.patientId);
-    if (!patient) return;
+    if (!patient && !editingAppointment) return;
 
-    onAddAppointment({
-      patient: patient.name,
-      date: formData.date,
-      time: formData.time,
-      type: formData.type
-    });
+    if (editingAppointment) {
+      onUpdateAppointment({
+        ...editingAppointment,
+        date: formData.date,
+        time: formData.time,
+        type: formData.type,
+        status: formData.status
+      });
+    } else if (patient) {
+      onAddAppointment({
+        patient: patient.name,
+        date: formData.date,
+        time: formData.time,
+        type: formData.type
+      });
+    }
 
     setIsModalOpen(false);
-    setFormData({ patientId: '', date: '', time: '', type: 'Pemeriksaan Rutin' });
+    setEditingAppointment(null);
+    setFormData({ patientId: '', date: '', time: '', type: 'Pemeriksaan Rutin', status: 'pending' });
   };
+
+  const handleEdit = (apt: Appointment) => {
+    const patient = patients.find(p => p.name === apt.patient);
+    setFormData({
+      patientId: patient ? patient.id : '',
+      date: apt.date,
+      time: apt.time,
+      type: apt.type,
+      status: apt.status
+    });
+    setEditingAppointment(apt);
+    setIsModalOpen(true);
+  };
+
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
 
   return (
     <div className="space-y-8">
@@ -2535,7 +4718,11 @@ const Appointments = ({
             Simpan Data
           </button>
           <button 
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => {
+              setEditingAppointment(null);
+              setFormData({ patientId: '', date: '', time: '', type: 'Pemeriksaan Rutin', status: 'pending' });
+              setIsModalOpen(true);
+            }}
             className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
           >
             <Plus size={20} />
@@ -2550,12 +4737,16 @@ const Appointments = ({
             <Calendar className="text-blue-600 mb-4" size={32} />
             <h3 className="font-bold text-slate-900 mb-2">Kalender Cepat</h3>
             <div className="grid grid-cols-7 gap-1 text-center">
-              {['S', 'S', 'R', 'K', 'J', 'S', 'M'].map(d => <div key={d} className="text-[10px] font-bold text-slate-400">{d}</div>)}
-              {Array.from({ length: 31 }).map((_, i) => (
-                <div key={i} className={cn(
-                  "aspect-square flex items-center justify-center text-xs rounded-lg cursor-pointer hover:bg-blue-50",
-                  i + 1 === 10 ? "bg-blue-600 text-white font-bold" : "text-slate-600"
-                )}>
+              {['M', 'S', 'S', 'R', 'K', 'J', 'S'].map(d => <div key={d} className="text-[10px] font-bold text-slate-400">{d}</div>)}
+              {Array.from({ length: daysInMonth }).map((_, i) => (
+                <div 
+                  key={i} 
+                  onClick={() => setSelectedDate(i + 1)}
+                  className={cn(
+                    "aspect-square flex items-center justify-center text-xs rounded-lg cursor-pointer hover:bg-blue-50 transition-colors",
+                    i + 1 === selectedDate ? "bg-blue-600 text-white font-bold shadow-md shadow-blue-200" : "text-slate-600",
+                    appointments.some(a => new Date(a.date).getDate() === i + 1 && new Date(a.date).getMonth() === currentMonth) && i + 1 !== selectedDate ? "bg-blue-50 text-blue-600 font-bold" : ""
+                  )}>
                   {i + 1}
                 </div>
               ))}
@@ -2580,8 +4771,9 @@ const Appointments = ({
             <div className="divide-y divide-slate-50">
               {appointments
                 .filter(a => a.patient.toLowerCase().includes(searchTerm.toLowerCase()))
+                .filter(a => new Date(a.date).getDate() === selectedDate && new Date(a.date).getMonth() === currentMonth)
                 .map(apt => (
-                <div key={apt.id} className="p-6 flex items-center justify-between hover:bg-slate-50/50 transition-all">
+                <div key={apt.id} className="p-6 flex items-center justify-between hover:bg-slate-50/50 transition-all group">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-2xl bg-blue-50 flex flex-col items-center justify-center text-blue-600">
                       <span className="text-[10px] font-bold uppercase">{new Date(apt.date).toLocaleDateString('id-ID', { month: 'short' })}</span>
@@ -2599,12 +4791,41 @@ const Appointments = ({
                     )}>
                       {apt.status}
                     </span>
-                    <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all">
-                      <Edit size={16} />
-                    </button>
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                      <button 
+                        onClick={() => onRemindAppointment(apt)}
+                        className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
+                        title="Ingatkan Pasien"
+                      >
+                        <Bell size={16} />
+                      </button>
+                      <button 
+                        onClick={() => handleEdit(apt)}
+                        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                        title="Ubah Jadwal"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          if (confirm('Apakah Anda yakin ingin menghapus jadwal ini?')) {
+                            onDeleteAppointment(apt.id);
+                          }
+                        }}
+                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                        title="Hapus Jadwal"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
+              {appointments.filter(a => new Date(a.date).getDate() === selectedDate && new Date(a.date).getMonth() === currentMonth).length === 0 && (
+                <div className="p-12 text-center text-slate-500">
+                  Tidak ada jadwal untuk tanggal ini.
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -2620,7 +4841,7 @@ const Appointments = ({
               className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden"
             >
               <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-                <h3 className="text-xl font-bold text-slate-900">Tambah Jadwal Baru</h3>
+                <h3 className="text-xl font-bold text-slate-900">{editingAppointment ? 'Ubah Jadwal' : 'Tambah Jadwal Baru'}</h3>
                 <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400">
                   <X size={20} />
                 </button>
@@ -2644,16 +4865,18 @@ const Appointments = ({
                   <div>
                     <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-widest">Tanggal</label>
                     <input 
-                      type="date" required
+                      type="date" 
+                      required
                       className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
                       value={formData.date}
                       onChange={e => setFormData({...formData, date: e.target.value})}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-widest">Jam</label>
+                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-widest">Waktu</label>
                     <input 
-                      type="time" required
+                      type="time" 
+                      required
                       className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
                       value={formData.time}
                       onChange={e => setFormData({...formData, time: e.target.value})}
@@ -2671,13 +4894,29 @@ const Appointments = ({
                     <option>Scaling Gigi</option>
                     <option>Penambalan</option>
                     <option>Pencabutan</option>
-                    <option>Konsultasi</option>
+                    <option>Perawatan Saluran Akar</option>
+                    <option>Kontrol Ortho</option>
                   </select>
                 </div>
-                <div className="pt-4 flex gap-3">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-6 py-3 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all">Batal</button>
-                  <button type="submit" className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200">Simpan Jadwal</button>
-                </div>
+                {editingAppointment && (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-widest">Status</label>
+                    <select 
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                      value={formData.status}
+                      onChange={e => setFormData({...formData, status: e.target.value as 'pending' | 'confirmed'})}
+                    >
+                      <option value="pending">Menunggu</option>
+                      <option value="confirmed">Dikonfirmasi</option>
+                    </select>
+                  </div>
+                )}
+                <button 
+                  type="submit"
+                  className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200 mt-6"
+                >
+                  {editingAppointment ? 'Simpan Perubahan' : 'Simpan Jadwal'}
+                </button>
               </form>
             </motion.div>
           </div>
@@ -2751,10 +4990,25 @@ export default function App() {
   const [patients, setPatients] = useState<Patient[]>(MOCK_PATIENTS);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  const addNotification = (title: string, message: string) => {
+    setNotifications(prev => [{
+      id: Date.now().toString(),
+      title,
+      message,
+      time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+      read: false
+    }, ...prev]);
+  };
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
+    if (type === 'success') {
+      addNotification('Aktivitas Baru', message);
+    }
   };
 
   const handleSave = (message: string) => {
@@ -2765,6 +5019,38 @@ export default function App() {
     { id: 1, patient: 'Ahmad Subarjo', date: '2026-04-10', time: '09:00', type: 'Pemeriksaan Rutin', status: 'confirmed' },
     { id: 2, patient: 'Siti Aminah', date: '2026-04-10', time: '10:30', type: 'Scaling Gigi', status: 'pending' },
     { id: 3, patient: 'Budi Santoso', date: '2026-04-11', time: '14:00', type: 'Penambalan', status: 'confirmed' },
+  ]);
+
+  const handleAddAppointment = (apt: Omit<Appointment, 'id' | 'status'>) => {
+    const newApt: Appointment = {
+      ...apt,
+      id: Date.now(),
+      status: 'pending'
+    };
+    setAppointments([...appointments, newApt]);
+    showToast('Jadwal berhasil ditambahkan!');
+  };
+
+  const handleUpdateAppointment = (apt: Appointment) => {
+    setAppointments(appointments.map(a => a.id === apt.id ? apt : a));
+    showToast('Jadwal berhasil diperbarui!');
+  };
+
+  const handleDeleteAppointment = (id: number) => {
+    setAppointments(appointments.filter(a => a.id !== id));
+    showToast('Jadwal berhasil dihapus!');
+  };
+
+  const handleRemindAppointment = (apt: Appointment) => {
+    addNotification('Pengingat Jadwal', `Pengingat telah dikirim ke pasien ${apt.patient} untuk jadwal tanggal ${apt.date} jam ${apt.time}.`);
+    showToast('Pengingat berhasil dikirim!');
+  };
+
+  const [invoices, setInvoices] = useState<Invoice[]>([
+    { id: 'INV-001', patient: 'Ahmad Subarjo', date: '2026-04-05', amount: 450000, status: 'paid', method: 'Transfer Bank' },
+    { id: 'INV-002', patient: 'Siti Aminah', date: '2026-04-06', amount: 1250000, status: 'unpaid', method: '-' },
+    { id: 'INV-003', patient: 'Budi Santoso', date: '2026-04-06', amount: 350000, status: 'paid', method: 'Tunai' },
+    { id: 'INV-004', patient: 'Dewi Lestari', date: '2026-04-07', amount: 2100000, status: 'pending', method: 'BPJS' },
   ]);
 
   const handleBack = () => {
@@ -2785,15 +5071,6 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentPage, selectedPatientId]);
-
-  const handleAddAppointment = (apt: Omit<Appointment, 'id' | 'status'>) => {
-    const newApt: Appointment = {
-      ...apt,
-      id: appointments.length + 1,
-      status: 'confirmed'
-    };
-    setAppointments([...appointments, newApt]);
-  };
 
   const handleLogin = (userData: User) => {
     setUser(userData);
@@ -2830,7 +5107,7 @@ export default function App() {
 
   const renderPage = () => {
     switch (currentPage) {
-      case 'dashboard': return <Dashboard onNavigate={setCurrentPage} />;
+      case 'dashboard': return <Dashboard onNavigate={setCurrentPage} patients={patients} appointments={appointments} invoices={invoices} />;
       case 'patients': return (
         <PatientMaster 
           patients={patients} 
@@ -2851,6 +5128,7 @@ export default function App() {
           onSelectPatient={setSelectedPatientId}
           onAddAppointment={handleAddAppointment}
           onSave={() => handleSave('Rekam Medis berhasil disimpan!')}
+          user={user}
         />
       );
       case 'appointments': return (
@@ -2858,15 +5136,19 @@ export default function App() {
           patients={patients} 
           appointments={appointments}
           onAddAppointment={handleAddAppointment}
+          onUpdateAppointment={handleUpdateAppointment}
+          onDeleteAppointment={handleDeleteAppointment}
+          onRemindAppointment={handleRemindAppointment}
           onSave={() => handleSave('Jadwal berhasil disimpan!')}
         />
       );
       case 'diagnosis-ref': return <DiagnosisReference onSave={() => handleSave('Pedoman Diagnosa berhasil disimpan!')} />;
-      case 'billing': return <Billing onSave={() => handleSave('Data Billing berhasil disimpan!')} />;
+      case 'billing': return <Billing invoices={invoices} setInvoices={setInvoices} onSave={() => handleSave('Data Billing berhasil disimpan!')} />;
       case 'education': return <Education onSave={() => handleSave('Data Edukasi berhasil disimpan!')} />;
       case 'reports': return <Reports onSave={() => handleSave('Laporan berhasil diperbarui!')} />;
       case 'security': return <Security onSave={() => handleSave('Pengaturan Keamanan berhasil disimpan!')} />;
-      default: return <Dashboard onNavigate={setCurrentPage} />;
+      case 'settings': return <Settings onSave={() => handleSave('Pengaturan berhasil disimpan!')} />;
+      default: return <Dashboard onNavigate={setCurrentPage} patients={patients} appointments={appointments} invoices={invoices} />;
     }
   };
 
@@ -2900,19 +5182,39 @@ export default function App() {
           </div>
 
           <nav className="flex-1 space-y-2">
-            <SidebarItem icon={LayoutDashboard} label="Dashboard" active={currentPage === 'dashboard'} onClick={() => setCurrentPage('dashboard')} />
-            <SidebarItem icon={Users} label="Data Pasien" active={currentPage === 'patients'} onClick={() => setCurrentPage('patients')} />
-            <SidebarItem icon={ClipboardList} label="Rekam Medis" active={currentPage === 'records'} onClick={() => setCurrentPage('records')} />
-            <SidebarItem icon={Calendar} label="Jadwal & Janji" active={currentPage === 'appointments'} onClick={() => setCurrentPage('appointments')} />
-            <SidebarItem icon={CreditCard} label="Billing & Kasir" active={currentPage === 'billing'} onClick={() => setCurrentPage('billing')} />
-            <SidebarItem icon={GraduationCap} label="Edukasi Gigi" active={currentPage === 'education'} onClick={() => setCurrentPage('education')} />
-            <SidebarItem icon={BookOpen} label="Pedoman Diagnosa" active={currentPage === 'diagnosis-ref'} onClick={() => setCurrentPage('diagnosis-ref')} />
-            <SidebarItem icon={FileText} label="Pelaporan" active={currentPage === 'reports'} onClick={() => setCurrentPage('reports')} />
-            <SidebarItem icon={ShieldCheck} label="Keamanan Data" active={currentPage === 'security'} onClick={() => setCurrentPage('security')} />
+            {['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut', 'Dosen'].includes(user?.role || '') && (
+              <SidebarItem icon={LayoutDashboard} label="Dashboard" active={currentPage === 'dashboard'} onClick={() => setCurrentPage('dashboard')} />
+            )}
+            {['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut'].includes(user?.role || '') && (
+              <SidebarItem icon={Users} label="Data Pasien" active={currentPage === 'patients'} onClick={() => setCurrentPage('patients')} />
+            )}
+            {['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut', 'Dosen', 'Pasien'].includes(user?.role || '') && (
+              <SidebarItem icon={ClipboardList} label="Rekam Medis" active={currentPage === 'records'} onClick={() => setCurrentPage('records')} />
+            )}
+            {['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut', 'Pasien'].includes(user?.role || '') && (
+              <SidebarItem icon={Calendar} label="Jadwal & Janji" active={currentPage === 'appointments'} onClick={() => setCurrentPage('appointments')} />
+            )}
+            {['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut'].includes(user?.role || '') && (
+              <SidebarItem icon={CreditCard} label="Billing & Kasir" active={currentPage === 'billing'} onClick={() => setCurrentPage('billing')} />
+            )}
+            {['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut', 'Pasien'].includes(user?.role || '') && (
+              <SidebarItem icon={GraduationCap} label="Edukasi Gigi" active={currentPage === 'education'} onClick={() => setCurrentPage('education')} />
+            )}
+            {['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut'].includes(user?.role || '') && (
+              <SidebarItem icon={BookOpen} label="Pedoman Diagnosa" active={currentPage === 'diagnosis-ref'} onClick={() => setCurrentPage('diagnosis-ref')} />
+            )}
+            {['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut'].includes(user?.role || '') && (
+              <SidebarItem icon={FileText} label="Pelaporan" active={currentPage === 'reports'} onClick={() => setCurrentPage('reports')} />
+            )}
+            {['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut'].includes(user?.role || '') && (
+              <SidebarItem icon={ShieldCheck} label="Keamanan Data" active={currentPage === 'security'} onClick={() => setCurrentPage('security')} />
+            )}
           </nav>
 
           <div className="pt-4 border-t border-slate-100 space-y-2">
-            <SidebarItem icon={Settings} label="Pengaturan" onClick={() => {}} />
+            {['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut'].includes(user?.role || '') && (
+              <SidebarItem icon={Settings} label="Pengaturan" active={currentPage === 'settings'} onClick={() => setCurrentPage('settings')} />
+            )}
             <SidebarItem icon={LogOut} label="Keluar" onClick={handleLogout} />
           </div>
         </div>
@@ -2935,11 +5237,66 @@ export default function App() {
             <h1 className="font-bold text-slate-600 capitalize">{currentPage.replace('-', ' ')}</h1>
           </div>
 
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2 text-slate-500 hover:text-slate-900 cursor-pointer transition-colors">
+          <div className="flex items-center gap-6 relative">
+            <div 
+              className="flex items-center gap-2 text-slate-500 hover:text-slate-900 cursor-pointer transition-colors relative"
+              onClick={() => setShowNotifications(!showNotifications)}
+            >
               <Bell size={20} />
-              <div className="w-2 h-2 bg-red-500 rounded-full -ml-3 -mt-3 border-2 border-white" />
+              {notifications.filter(n => !n.read).length > 0 && (
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white flex items-center justify-center text-[8px] text-white font-bold">
+                  {notifications.filter(n => !n.read).length}
+                </div>
+              )}
             </div>
+
+            <AnimatePresence>
+              {showNotifications && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  className="absolute top-12 right-48 w-80 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-50"
+                >
+                  <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                    <h3 className="font-bold text-slate-900">Notifikasi</h3>
+                    <button 
+                      onClick={() => setNotifications(notifications.map(n => ({...n, read: true})))}
+                      className="text-xs text-blue-600 font-bold hover:underline"
+                    >
+                      Tandai semua dibaca
+                    </button>
+                  </div>
+                  <div className="max-h-96 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="p-8 text-center text-slate-500 text-sm">
+                        Belum ada notifikasi
+                      </div>
+                    ) : (
+                      notifications.map(notif => (
+                        <div 
+                          key={notif.id} 
+                          className={cn(
+                            "p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer",
+                            !notif.read ? "bg-blue-50/50" : ""
+                          )}
+                          onClick={() => {
+                            setNotifications(notifications.map(n => n.id === notif.id ? {...n, read: true} : n));
+                          }}
+                        >
+                          <div className="flex justify-between items-start mb-1">
+                            <h4 className="text-sm font-bold text-slate-900">{notif.title}</h4>
+                            <span className="text-[10px] font-bold text-slate-400">{notif.time}</span>
+                          </div>
+                          <p className="text-xs text-slate-600">{notif.message}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <div className="h-8 w-[1px] bg-slate-200" />
             <div className="flex items-center gap-3 cursor-pointer group">
               <div className="text-right hidden sm:block">

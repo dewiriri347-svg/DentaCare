@@ -58,15 +58,21 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     if (isLogin) {
       // Mock login
       if (formData.user && formData.password) {
-        let name = 'Drg. Rizky';
+        let name = 'Drg. Rizky Ramadhan';
         let role = 'Dokter Gigi';
         
         if (formData.user.toLowerCase() === 'admin') {
           name = 'Administrator';
           role = 'Admin';
         } else if (formData.user.toLowerCase() === 'dewi') {
-          name = 'Dewi';
+          name = 'Dewi Sri Rahmawati';
           role = 'Terapis Gigi dan Mulut';
+        } else if (formData.user.toLowerCase() === 'dosen') {
+          name = 'Dosen Pembimbing';
+          role = 'Dosen';
+        } else if (formData.user.toLowerCase() === 'pasien') {
+          name = 'Pasien Demo';
+          role = 'Pasien';
         }
 
         onLogin({ name, role });
@@ -131,16 +137,19 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Kategori Petugas</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Jenis User</label>
                     <div className="relative">
-                      <Stethoscope className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <UserCircle className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                       <select 
                         className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none appearance-none transition-all"
                         value={formData.role}
                         onChange={(e) => setFormData({...formData, role: e.target.value})}
                       >
+                        <option>Admin</option>
                         <option>Dokter Gigi</option>
                         <option>Terapis Gigi dan Mulut</option>
+                        <option>Dosen</option>
+                        <option>Pasien</option>
                       </select>
                     </div>
                   </div>

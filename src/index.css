@@ -12,6 +12,18 @@
   }
 }
 
+.dosen-view input,
+.dosen-view select,
+.dosen-view textarea {
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.dosen-view button:not(.tab-button) {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
