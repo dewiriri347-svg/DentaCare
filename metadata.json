@@ -1,0 +1,7 @@
+{
+  "name": "DentaCare RME",
+  "description": "Sistem Informasi Asuhan Kesehatan Gigi dan Mulut Terintegrasi (RME) sesuai standar WHO dan Kemenkes RI.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
