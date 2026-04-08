@@ -15,7 +15,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 
 interface AuthProps {
-  onLogin: (user: { name: string; role: string }) => void;
+  onLogin: (user: { name: string; role: string; email: string }) => void;
 }
 
 export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
@@ -27,7 +27,8 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     user: 'dewi',
     password: 'password123',
     role: 'Terapis Gigi dan Mulut',
-    name: 'Dewi'
+    name: 'Dewi',
+    email: 'dewi@example.com'
   });
   const [error, setError] = useState('');
 
@@ -58,31 +59,36 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     if (isLogin) {
       // Mock login
       if (formData.user && formData.password) {
-        let name = 'Drg. Rizky Ramadhan';
+        let name = 'Drg. Rizky';
         let role = 'Dokter Gigi';
+        let email = 'rizky@example.com';
         
         if (formData.user.toLowerCase() === 'admin') {
           name = 'Administrator';
           role = 'Admin';
+          email = 'admin@example.com';
         } else if (formData.user.toLowerCase() === 'dewi') {
-          name = 'Dewi Sri Rahmawati';
+          name = 'Dewi';
           role = 'Terapis Gigi dan Mulut';
+          email = 'dewi@example.com';
         } else if (formData.user.toLowerCase() === 'dosen') {
           name = 'Dosen Pembimbing';
           role = 'Dosen';
+          email = 'dosen@example.com';
         } else if (formData.user.toLowerCase() === 'pasien') {
           name = 'Pasien Demo';
           role = 'Pasien';
+          email = 'pasien@example.com';
         }
 
-        onLogin({ name, role });
+        onLogin({ name, role, email });
       } else {
         setError('Username dan password wajib diisi');
       }
     } else {
       // Mock register
-      if (formData.user && formData.password && formData.name) {
-        onLogin({ name: formData.name, role: formData.role });
+      if (formData.user && formData.password && formData.name && formData.email) {
+        onLogin({ name: formData.name, role: formData.role, email: formData.email });
       } else {
         setError('Semua field wajib diisi');
       }
@@ -92,7 +98,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   const handleGoogleLogin = () => {
     // In a real app, this would trigger the OAuth flow
     console.log('Google Login Triggered');
-    onLogin({ name: 'User Google', role: 'Dokter Gigi' });
+    onLogin({ name: 'User Google', role: 'Dokter Gigi', email: 'google@example.com' });
   };
 
   return (
@@ -145,11 +151,11 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
                         value={formData.role}
                         onChange={(e) => setFormData({...formData, role: e.target.value})}
                       >
-                        <option>Admin</option>
-                        <option>Dokter Gigi</option>
-                        <option>Terapis Gigi dan Mulut</option>
-                        <option>Dosen</option>
-                        <option>Pasien</option>
+                        <option value="Admin">Admin</option>
+                        <option value="Dokter Gigi">Dokter Gigi</option>
+                        <option value="Terapis Gigi dan Mulut">Terapis Gigi dan Mulut</option>
+                        <option value="Dosen">Dosen</option>
+                        <option value="Pasien">Pasien</option>
                       </select>
                     </div>
                   </div>

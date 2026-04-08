@@ -33,7 +33,9 @@ import {
   Trash2,
   Save,
   CreditCard,
-  GraduationCap
+  GraduationCap,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -70,9 +72,12 @@ import Markdown from 'react-markdown';
 // --- Types ---
 type Page = 'dashboard' | 'patients' | 'records' | 'appointments' | 'reports' | 'diagnosis-ref' | 'security' | 'billing' | 'education' | 'settings';
 
+type UserRole = 'Admin' | 'Dokter Gigi' | 'Terapis Gigi dan Mulut' | 'Dosen' | 'Pasien';
+
 interface User {
   name: string;
-  role: string;
+  role: UserRole;
+  email: string;
 }
 
 interface Patient {
@@ -485,7 +490,7 @@ const Dashboard = ({ onNavigate, patients, appointments, invoices }: { onNavigat
   const DASHBOARD_STATS = [
     { label: 'Total Pasien', value: patients.length.toString(), icon: Users, color: 'bg-blue-500' },
     { label: 'Kunjungan Hari Ini', value: todayAppointments.toString(), icon: Calendar, color: 'bg-emerald-500' },
-    { label: 'Total Pendapatan', value: `Rp ${(totalRevenue / 1000000).toFixed(1)}M`, icon: Activity, color: 'bg-amber-500' },
+    { label: 'Total Pendapatan', value: `Rp ${totalRevenue.toLocaleString('id-ID')}`, icon: Activity, color: 'bg-amber-500' },
     { label: 'Tagihan Tertunda', value: invoices.filter(inv => inv.status === 'unpaid').length.toString(), icon: CheckCircle2, color: 'bg-purple-500' },
   ];
 
@@ -1181,11 +1186,16 @@ const Billing = ({ invoices, setInvoices, onSave }: { invoices: Invoice[], setIn
 
   const handlePrint = (inv: Invoice) => {
     setPrintingInvoice(inv);
-    setTimeout(() => {
-      window.print();
-      setPrintingInvoice(null);
-    }, 500);
   };
+
+  useEffect(() => {
+    if (printingInvoice) {
+      setTimeout(() => {
+        window.print();
+        setPrintingInvoice(null);
+      }, 500);
+    }
+  }, [printingInvoice]);
 
   const handleSaveEdit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1304,26 +1314,22 @@ const Billing = ({ invoices, setInvoices, onSave }: { invoices: Invoice[], setIn
             <Save size={16} />
             Simpan Data
           </button>
-          <button className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200">
-            <Plus size={20} />
-            Buat Invoice Baru
-          </button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Total Pendapatan (Bulan Ini)</p>
-          <p className="text-3xl font-black text-slate-900">Rp 42.500.000</p>
+          <p className="text-3xl font-black text-slate-900">Rp {invoices.filter(inv => inv.status === 'paid').reduce((acc, curr) => acc + curr.amount, 0).toLocaleString('id-ID')}</p>
           <div className="mt-4 flex items-center gap-2 text-emerald-600 text-xs font-bold">
             <Activity size={14} />
-            +15.4% dari bulan lalu
+            Data Terintegrasi
           </div>
         </div>
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Invoice Belum Terbayar</p>
-          <p className="text-3xl font-black text-red-600">12</p>
-          <p className="mt-4 text-slate-400 text-xs font-medium">Total: Rp 8.450.000</p>
+          <p className="text-3xl font-black text-red-600">{invoices.filter(inv => inv.status === 'unpaid').length}</p>
+          <p className="mt-4 text-slate-400 text-xs font-medium">Total: Rp {invoices.filter(inv => inv.status === 'unpaid').reduce((acc, curr) => acc + curr.amount, 0).toLocaleString('id-ID')}</p>
         </div>
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Metode Terpopuler</p>
@@ -1618,6 +1624,8 @@ const MedicalRecord = ({
   const [isPreviousVisitModalOpen, setIsPreviousVisitModalOpen] = useState(false);
   const [showPrimaryTeeth, setShowPrimaryTeeth] = useState(true);
   const [showDiagnosisGuidelines, setShowDiagnosisGuidelines] = useState(false);
+  const [isPatientVerified, setIsPatientVerified] = useState(user?.role !== 'Pasien');
+  const [showVerification, setShowVerification] = useState(user?.role === 'Pasien' && !isPatientVerified);
   
   // Visit History Data
   const [history, setHistory] = useState<any[]>([
@@ -1854,6 +1862,18 @@ const MedicalRecord = ({
   const sigWitness = useRef<SignatureCanvas>(null);
 
   const selectedPatient = patients.find(p => p.id === selectedPatientId);
+
+  if (user?.role === 'Pasien' && !isPatientVerified) {
+    return (
+      <PatientVerification 
+        onVerify={(id) => {
+          setIsPatientVerified(true);
+          setShowVerification(false);
+        }}
+        patients={patients}
+      />
+    );
+  }
 
   const handleSurfaceClick = (id: number, surface: keyof ToothSurfaceData) => {
     const statuses: SurfaceStatus[] = ['healthy', 'caries', 'filled', 'missing', 'impacted'];
@@ -2139,7 +2159,12 @@ const MedicalRecord = ({
           { id: 'resume', label: 'Resume', icon: FileText, roles: ['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut', 'Dosen', 'Pasien'] },
           { id: 'riwayat', label: 'Riwayat', icon: History, roles: ['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut', 'Dosen'] },
           { id: 'evaluation', label: 'Evaluasi', icon: Activity, roles: ['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut', 'Dosen', 'Pasien'] },
-        ].filter(tab => tab.roles.includes(user?.role || '')).map((tab) => (
+        ].filter(tab => {
+          if (user?.role === 'Pasien') {
+            return ['anamnesis', 'resume', 'evaluation'].includes(tab.id);
+          }
+          return tab.roles.includes(user?.role || '');
+        }).map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
@@ -2618,8 +2643,8 @@ const MedicalRecord = ({
                       <div>
                         <label className="block text-sm font-bold text-slate-700 mb-2">b. Apakah yang ingin diketahui dari dalam rongga mulut anda saat ini?</label>
                         <div className="grid grid-cols-1 gap-2">
-                          {['Kerusakan gigi', 'Penyakit pada gusi', 'Luka pada jaringan mulut', 'Kanker mulut'].map(item => (
-                            <label key={item} className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-slate-100">
+                          {['Kerusakan gigi', 'Penyakit pada gusi', 'Luka pada jaringan mulut', 'Kanker mulut'].map((item, index) => (
+                            <label key={index} className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-slate-100">
                               <input 
                                 type="checkbox" className="w-4 h-4 rounded text-blue-600"
                                 checked={anamnesis.dentalHistory.inginDiketahui.includes(item as any)}
@@ -2731,8 +2756,8 @@ const MedicalRecord = ({
                       <div>
                         <label className="block text-sm font-bold text-slate-700 mb-2">g. Apakah anda mengalami gejala berikut?</label>
                         <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                          {['Gigi Sensitif', 'Tambalan lepas', 'Sakit pada rahang', 'Mulut kering', 'Sakit gigi', 'Bau mulut', 'Sakit gusi', 'Sensasi terbakar', 'Gusi berdarah', 'Bengkak', 'Kesulitan mengunyah', 'Gusi menurun'].map(item => (
-                            <label key={item} className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-slate-100">
+                          {['Gigi Sensitif', 'Tambalan lepas', 'Sakit pada rahang', 'Mulut kering', 'Sakit gigi', 'Bau mulut', 'Sakit gusi', 'Sensasi terbakar', 'Gusi berdarah', 'Bengkak', 'Kesulitan mengunyah', 'Gusi menurun'].map((item, index) => (
+                            <label key={index} className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-slate-100">
                               <input 
                                 type="checkbox" className="w-4 h-4 rounded text-blue-600"
                                 checked={anamnesis.dentalHistory.gejala.includes(item as any)}
@@ -2812,8 +2837,8 @@ const MedicalRecord = ({
                           <div className="space-y-3 pl-4 border-l-2 border-blue-200">
                             <label className="block text-sm font-bold text-slate-700">Apa saja yang anda anggap bermasalah?</label>
                             <div className="grid grid-cols-1 gap-2">
-                              {['Gigi menguning atau berubah warna', 'Gigi berjejal/tidak beraturan', 'Jarak antara gigi/renggang', 'Profil wajah', 'Noda pada permukaan gigi', 'Masalah gusi'].map(item => (
-                                <label key={item} className="flex items-center gap-2 p-3 bg-white border border-slate-100 rounded-xl cursor-pointer hover:bg-slate-50">
+                              {['Gigi menguning atau berubah warna', 'Gigi berjejal/tidak beraturan', 'Jarak antara gigi/renggang', 'Profil wajah', 'Noda pada permukaan gigi', 'Masalah gusi'].map((item, index) => (
+                                <label key={index} className="flex items-center gap-2 p-3 bg-white border border-slate-100 rounded-xl cursor-pointer hover:bg-slate-50">
                                   <input 
                                     type="checkbox" className="w-4 h-4 rounded text-blue-600"
                                     checked={anamnesis.dentalHistory.masalahAromaNafas.includes(item as any)}
@@ -2861,8 +2886,8 @@ const MedicalRecord = ({
                       <div>
                         <label className="block text-sm font-bold text-slate-700 mb-2">k. Apakah anda pernah mengalami/menggunakan hal-hal berikut ini?</label>
                         <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                          {['Karang gigi', 'Terapi radiasi pada kepala/leher', 'Perdarahan yang berkepanjangan setelah perawatan gigi', 'Pencabutan gigi', 'Gigi palsu', 'Operasi rahang', 'Perawatan saluran akar gigi', 'Rasa sakit pada leher dan kepala', 'Operasi gusi', 'Kawat gigi'].map(item => (
-                            <label key={item} className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-slate-100">
+                          {['Karang gigi', 'Terapi radiasi pada kepala/leher', 'Perdarahan yang berkepanjangan setelah perawatan gigi', 'Pencabutan gigi', 'Gigi palsu', 'Operasi rahang', 'Perawatan saluran akar gigi', 'Rasa sakit pada leher dan kepala', 'Operasi gusi', 'Kawat gigi'].map((item, index) => (
+                            <label key={index} className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-slate-100">
                               <input 
                                 type="checkbox" className="w-4 h-4 rounded text-blue-600"
                                 checked={anamnesis.dentalHistory.pengalamanLalu.includes(item as any)}
@@ -2905,8 +2930,8 @@ const MedicalRecord = ({
                             'Alat irigasi mulut', 'Benang gigi bertangkai', 'Perekat gigi tiruan', 'Pembersih gigi tiruan', 
                             'Obat kumur', 'Benang gigi', 'Pemutih gigi', 'Sikat gigi khusus', 'Pasta/gel fluor', 
                             'Pasta gigi berfluoride', 'Fluor tetes/tablet'
-                          ].map(item => (
-                            <label key={item} className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-slate-100">
+                          ].map((item, index) => (
+                            <label key={index} className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-slate-100">
                               <input 
                                 type="checkbox" className="w-4 h-4 rounded text-blue-600"
                                 checked={anamnesis.dentalHistory.homeCareTools.includes(item as any)}
@@ -2934,8 +2959,8 @@ const MedicalRecord = ({
                       <div>
                         <label className="block text-sm font-bold text-slate-700 mb-2">b. Keunggulan pasta gigi yang anda gunakan:</label>
                         <div className="grid grid-cols-1 gap-2">
-                          {['Berfluoride', 'Beraroma mint', 'Perlindungan gigi sensitif', 'Mengandung peroxida', 'Mengontrol karang gigi', 'Memiliki banyak manfaat', 'Mengandung baking soda'].map(item => (
-                            <label key={item} className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-slate-100">
+                          {['Berfluoride', 'Beraroma mint', 'Perlindungan gigi sensitif', 'Mengandung peroxida', 'Mengontrol karang gigi', 'Memiliki banyak manfaat', 'Mengandung baking soda'].map((item, index) => (
+                            <label key={index} className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-slate-100">
                               <input 
                                 type="checkbox" className="w-4 h-4 rounded text-blue-600"
                                 checked={anamnesis.dentalHistory.toothpasteBenefits.includes(item as any)}
@@ -3014,8 +3039,8 @@ const MedicalRecord = ({
                             <div>
                               <label className="block text-xs font-bold text-slate-500 mb-1">Waktu menyikat gigi:</label>
                               <div className="grid grid-cols-1 gap-2">
-                                {['Pagi hari', 'Pagi setelah sarapan', 'Saat mandi', 'Malam hari sebelum tidur', 'Setelah makan siang'].map(item => (
-                                  <label key={item} className="flex items-center gap-2 p-3 bg-white border border-slate-100 rounded-xl cursor-pointer hover:bg-slate-50">
+                                {['Pagi hari', 'Pagi setelah sarapan', 'Saat mandi', 'Malam hari sebelum tidur', 'Setelah makan siang'].map((item, index) => (
+                                  <label key={index} className="flex items-center gap-2 p-3 bg-white border border-slate-100 rounded-xl cursor-pointer hover:bg-slate-50">
                                     <input 
                                       type="checkbox" className="w-4 h-4 rounded text-blue-600"
                                       checked={anamnesis.dentalHistory.brushingTimes.includes(item as any)}
@@ -3079,8 +3104,8 @@ const MedicalRecord = ({
                           <div className="space-y-3 pl-4 border-l-2 border-blue-200">
                             <label className="block text-sm font-bold text-slate-700">Kondisi yang menyulitkan:</label>
                             <div className="grid grid-cols-1 gap-2">
-                              {['Memegang sikat gigi', 'Menggunakan benang gigi', 'Memegang sikat gigi/benang gigi terlalu lama', 'Penglihatan yang buruk'].map(item => (
-                                <label key={item} className="flex items-center gap-2 p-3 bg-white border border-slate-100 rounded-xl cursor-pointer hover:bg-slate-50">
+                              {['Memegang sikat gigi', 'Menggunakan benang gigi', 'Memegang sikat gigi/benang gigi terlalu lama', 'Penglihatan yang buruk'].map((item, index) => (
+                                <label key={index} className="flex items-center gap-2 p-3 bg-white border border-slate-100 rounded-xl cursor-pointer hover:bg-slate-50">
                                   <input 
                                     type="checkbox" className="w-4 h-4 rounded text-blue-600"
                                     checked={anamnesis.dentalHistory.difficultyCleaningOptions.includes(item as any)}
@@ -3126,8 +3151,8 @@ const MedicalRecord = ({
                       <div>
                         <label className="block text-sm font-bold text-slate-700 mb-2">h. Manakah kebiasan yang sering anda lakukan?</label>
                         <div className="grid grid-cols-1 gap-2">
-                          {['Menggigit benda keras', 'Merokok'].map(item => (
-                            <label key={item} className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-slate-100">
+                          {['Menggigit benda keras', 'Merokok'].map((item, index) => (
+                            <label key={index} className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-slate-100">
                               <input 
                                 type="checkbox" className="w-4 h-4 rounded text-blue-600"
                                 checked={anamnesis.dentalHistory.habits.includes(item as any)}
@@ -4635,7 +4660,10 @@ const Appointments = ({
   onUpdateAppointment,
   onDeleteAppointment,
   onRemindAppointment,
-  onSave
+  onSave,
+  user,
+  isPatientVerified,
+  onVerify
 }: { 
   patients: Patient[], 
   appointments: Appointment[],
@@ -4643,12 +4671,26 @@ const Appointments = ({
   onUpdateAppointment: (apt: Appointment) => void,
   onDeleteAppointment: (id: number) => void,
   onRemindAppointment: (apt: Appointment) => void,
-  onSave: () => void
+  onSave: () => void,
+  user: User | null,
+  isPatientVerified: boolean,
+  onVerify: (verified: boolean) => void
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [selectedDate, setSelectedDate] = useState<number>(new Date().getDate());
+
+  if (user?.role === 'Pasien' && !isPatientVerified) {
+    return (
+      <PatientVerification 
+        onVerify={(id) => {
+          onVerify(true);
+        }}
+        patients={patients}
+      />
+    );
+  }
 
   const [formData, setFormData] = useState({
     patientId: '',
@@ -4717,17 +4759,19 @@ const Appointments = ({
             <Save size={16} />
             Simpan Data
           </button>
-          <button 
-            onClick={() => {
-              setEditingAppointment(null);
-              setFormData({ patientId: '', date: '', time: '', type: 'Pemeriksaan Rutin', status: 'pending' });
-              setIsModalOpen(true);
-            }}
-            className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
-          >
-            <Plus size={20} />
-            Tambah Jadwal Baru
-          </button>
+          {user?.role !== 'Pasien' && (
+            <button 
+              onClick={() => {
+                setEditingAppointment(null);
+                setFormData({ patientId: '', date: '', time: '', type: 'Pemeriksaan Rutin', status: 'pending' });
+                setIsModalOpen(true);
+              }}
+              className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
+            >
+              <Plus size={20} />
+              Tambah Jadwal Baru
+            </button>
+          )}
         </div>
       </div>
 
@@ -4737,7 +4781,7 @@ const Appointments = ({
             <Calendar className="text-blue-600 mb-4" size={32} />
             <h3 className="font-bold text-slate-900 mb-2">Kalender Cepat</h3>
             <div className="grid grid-cols-7 gap-1 text-center">
-              {['M', 'S', 'S', 'R', 'K', 'J', 'S'].map(d => <div key={d} className="text-[10px] font-bold text-slate-400">{d}</div>)}
+              {['M', 'S', 'S', 'R', 'K', 'J', 'S'].map((d, index) => <div key={index} className="text-[10px] font-bold text-slate-400">{d}</div>)}
               {Array.from({ length: daysInMonth }).map((_, i) => (
                 <div 
                   key={i} 
@@ -4792,31 +4836,35 @@ const Appointments = ({
                       {apt.status}
                     </span>
                     <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
-                      <button 
-                        onClick={() => onRemindAppointment(apt)}
-                        className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
-                        title="Ingatkan Pasien"
-                      >
-                        <Bell size={16} />
-                      </button>
-                      <button 
-                        onClick={() => handleEdit(apt)}
-                        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                        title="Ubah Jadwal"
-                      >
-                        <Edit size={16} />
-                      </button>
-                      <button 
-                        onClick={() => {
-                          if (confirm('Apakah Anda yakin ingin menghapus jadwal ini?')) {
-                            onDeleteAppointment(apt.id);
-                          }
-                        }}
-                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                        title="Hapus Jadwal"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      {user?.role !== 'Pasien' && (
+                        <>
+                          <button 
+                            onClick={() => onRemindAppointment(apt)}
+                            className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
+                            title="Ingatkan Pasien"
+                          >
+                            <Bell size={16} />
+                          </button>
+                          <button 
+                            onClick={() => handleEdit(apt)}
+                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                            title="Ubah Jadwal"
+                          >
+                            <Edit size={16} />
+                          </button>
+                          <button 
+                            onClick={() => {
+                              if (confirm('Apakah Anda yakin ingin menghapus jadwal ini?')) {
+                                onDeleteAppointment(apt.id);
+                              }
+                            }}
+                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                            title="Hapus Jadwal"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -4982,16 +5030,134 @@ const DiagnosisReference = ({ onSave }: { onSave: () => void }) => (
 
 // --- Main App ---
 
+const ProfileModal = ({ user, onClose, onSave }: { user: User | null, onClose: () => void, onSave: (updatedUser: User) => void }) => {
+  const [name, setName] = useState(user?.name || '');
+  const [email, setEmail] = useState(user?.email || '');
+  const [role, setRole] = useState<UserRole>(user?.role || 'Pasien');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  const handleSave = () => {
+    if (newPassword !== confirmPassword) {
+      alert('Password baru tidak cocok!');
+      return;
+    }
+    // In a real app, you would validate currentPassword here
+    onSave({ ...user!, name, email, role });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl" onClick={e => e.stopPropagation()}>
+        <h2 className="text-2xl font-bold mb-6">Profil & Keamanan</h2>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-1">Nama User</label>
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full p-3 rounded-xl border border-slate-200" />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-1">Email</label>
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-3 rounded-xl border border-slate-200" />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-1">Role</label>
+            <select value={role} onChange={(e) => setRole(e.target.value as UserRole)} className="w-full p-3 rounded-xl border border-slate-200">
+              <option value="Admin">Admin</option>
+              <option value="Dokter Gigi">Dokter Gigi</option>
+              <option value="Terapis Gigi dan Mulut">Terapis Gigi dan Mulut</option>
+              <option value="Dosen">Dosen</option>
+              <option value="Pasien">Pasien</option>
+            </select>
+          </div>
+          <div className="border-t pt-4 mt-4 relative">
+            <label className="block text-sm font-bold text-slate-700 mb-1">Password Saat Ini</label>
+            <input type={showCurrentPassword ? 'text' : 'password'} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="w-full p-3 rounded-xl border border-slate-200" />
+            <button type="button" onClick={() => setShowCurrentPassword(!showCurrentPassword)} className="absolute right-3 top-9 text-slate-400">
+              {showCurrentPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+          <div className="relative">
+            <label className="block text-sm font-bold text-slate-700 mb-1">Password Baru</label>
+            <input type={showNewPassword ? 'text' : 'password'} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full p-3 rounded-xl border border-slate-200" />
+            <button type="button" onClick={() => setShowNewPassword(!showNewPassword)} className="absolute right-3 top-9 text-slate-400">
+              {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+          <div className="relative">
+            <label className="block text-sm font-bold text-slate-700 mb-1">Konfirmasi Password Baru</label>
+            <input type={showConfirmPassword ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full p-3 rounded-xl border border-slate-200" />
+            <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-9 text-slate-400">
+              {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+        </div>
+        <div className="flex gap-3 mt-8">
+          <button onClick={onClose} className="flex-1 px-6 py-3 bg-slate-100 text-slate-700 rounded-2xl font-bold hover:bg-slate-200">Batal</button>
+          <button onClick={handleSave} className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700">Simpan</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const PatientVerification = ({ onVerify, patients }: { onVerify: (id: string) => void, patients: Patient[] }) => {
+  const [input, setInput] = useState('');
+  const [error, setError] = useState('');
+
+  const handleVerify = () => {
+    const patient = patients.find(p => p.nik === input || p.mrNumber === input);
+    if (patient) {
+      onVerify(patient.id);
+    } else {
+      setError('NIK atau MR Number tidak ditemukan.');
+    }
+  };
+
+  return (
+    <div className="p-8 bg-white rounded-3xl border border-slate-100 shadow-sm">
+      <h2 className="text-2xl font-bold mb-4">Verifikasi Data Pasien</h2>
+      <p className="text-slate-500 mb-6">Masukkan NIK atau Nomor Rekam Medis Anda untuk mengakses rekam medis.</p>
+      <div className="flex gap-4">
+        <input 
+          type="text" 
+          value={input} 
+          onChange={(e) => setInput(e.target.value)} 
+          className="flex-1 p-3 rounded-xl border border-slate-200" 
+          placeholder="NIK atau MR Number"
+        />
+        <button onClick={handleVerify} className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold">Verifikasi</button>
+      </div>
+      {error && <p className="text-red-500 mt-4">{error}</p>}
+    </div>
+  );
+};
+
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isPatientVerified, setIsPatientVerified] = useState(false);
   const [patients, setPatients] = useState<Patient[]>(MOCK_PATIENTS);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   const addNotification = (title: string, message: string) => {
     setNotifications(prev => [{
@@ -5080,6 +5246,14 @@ export default function App() {
   const handleLogout = () => {
     setIsLoggedIn(false);
     setUser(null);
+    setCurrentPage('dashboard');
+  };
+
+  const canAccess = (page: Page) => {
+    if (!user) return false;
+    if (['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut', 'Dosen'].includes(user.role)) return true;
+    if (user.role === 'Pasien') return ['records', 'appointments', 'education'].includes(page);
+    return false;
   };
 
   const handleAddPatient = (data: Omit<Patient, 'id' | 'mrNumber' | 'status'>) => {
@@ -5106,6 +5280,9 @@ export default function App() {
   }
 
   const renderPage = () => {
+    if (!canAccess(currentPage)) {
+      return <div className="p-8 text-center text-slate-500">Anda tidak memiliki akses ke halaman ini.</div>;
+    }
     switch (currentPage) {
       case 'dashboard': return <Dashboard onNavigate={setCurrentPage} patients={patients} appointments={appointments} invoices={invoices} />;
       case 'patients': return (
@@ -5140,6 +5317,9 @@ export default function App() {
           onDeleteAppointment={handleDeleteAppointment}
           onRemindAppointment={handleRemindAppointment}
           onSave={() => handleSave('Jadwal berhasil disimpan!')}
+          user={user}
+          isPatientVerified={isPatientVerified}
+          onVerify={setIsPatientVerified}
         />
       );
       case 'diagnosis-ref': return <DiagnosisReference onSave={() => handleSave('Pedoman Diagnosa berhasil disimpan!')} />;
@@ -5182,39 +5362,19 @@ export default function App() {
           </div>
 
           <nav className="flex-1 space-y-2">
-            {['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut', 'Dosen'].includes(user?.role || '') && (
-              <SidebarItem icon={LayoutDashboard} label="Dashboard" active={currentPage === 'dashboard'} onClick={() => setCurrentPage('dashboard')} />
-            )}
-            {['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut'].includes(user?.role || '') && (
-              <SidebarItem icon={Users} label="Data Pasien" active={currentPage === 'patients'} onClick={() => setCurrentPage('patients')} />
-            )}
-            {['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut', 'Dosen', 'Pasien'].includes(user?.role || '') && (
-              <SidebarItem icon={ClipboardList} label="Rekam Medis" active={currentPage === 'records'} onClick={() => setCurrentPage('records')} />
-            )}
-            {['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut', 'Pasien'].includes(user?.role || '') && (
-              <SidebarItem icon={Calendar} label="Jadwal & Janji" active={currentPage === 'appointments'} onClick={() => setCurrentPage('appointments')} />
-            )}
-            {['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut'].includes(user?.role || '') && (
-              <SidebarItem icon={CreditCard} label="Billing & Kasir" active={currentPage === 'billing'} onClick={() => setCurrentPage('billing')} />
-            )}
-            {['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut', 'Pasien'].includes(user?.role || '') && (
-              <SidebarItem icon={GraduationCap} label="Edukasi Gigi" active={currentPage === 'education'} onClick={() => setCurrentPage('education')} />
-            )}
-            {['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut'].includes(user?.role || '') && (
-              <SidebarItem icon={BookOpen} label="Pedoman Diagnosa" active={currentPage === 'diagnosis-ref'} onClick={() => setCurrentPage('diagnosis-ref')} />
-            )}
-            {['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut'].includes(user?.role || '') && (
-              <SidebarItem icon={FileText} label="Pelaporan" active={currentPage === 'reports'} onClick={() => setCurrentPage('reports')} />
-            )}
-            {['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut'].includes(user?.role || '') && (
-              <SidebarItem icon={ShieldCheck} label="Keamanan Data" active={currentPage === 'security'} onClick={() => setCurrentPage('security')} />
-            )}
+            {canAccess('dashboard') && <SidebarItem icon={LayoutDashboard} label="Dashboard" active={currentPage === 'dashboard'} onClick={() => setCurrentPage('dashboard')} />}
+            {canAccess('patients') && <SidebarItem icon={Users} label="Data Pasien" active={currentPage === 'patients'} onClick={() => setCurrentPage('patients')} />}
+            {canAccess('records') && <SidebarItem icon={ClipboardList} label="Rekam Medis" active={currentPage === 'records'} onClick={() => setCurrentPage('records')} />}
+            {canAccess('appointments') && <SidebarItem icon={Calendar} label="Jadwal & Janji" active={currentPage === 'appointments'} onClick={() => setCurrentPage('appointments')} />}
+            {canAccess('billing') && <SidebarItem icon={CreditCard} label="Billing & Kasir" active={currentPage === 'billing'} onClick={() => setCurrentPage('billing')} />}
+            {canAccess('education') && <SidebarItem icon={GraduationCap} label="Edukasi Gigi" active={currentPage === 'education'} onClick={() => setCurrentPage('education')} />}
+            {canAccess('diagnosis-ref') && <SidebarItem icon={BookOpen} label="Pedoman Diagnosa" active={currentPage === 'diagnosis-ref'} onClick={() => setCurrentPage('diagnosis-ref')} />}
+            {canAccess('reports') && <SidebarItem icon={FileText} label="Pelaporan" active={currentPage === 'reports'} onClick={() => setCurrentPage('reports')} />}
+            {canAccess('security') && <SidebarItem icon={ShieldCheck} label="Keamanan Data" active={currentPage === 'security'} onClick={() => setCurrentPage('security')} />}
           </nav>
 
           <div className="pt-4 border-t border-slate-100 space-y-2">
-            {['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut'].includes(user?.role || '') && (
-              <SidebarItem icon={Settings} label="Pengaturan" active={currentPage === 'settings'} onClick={() => setCurrentPage('settings')} />
-            )}
+            {canAccess('settings') && <SidebarItem icon={SettingsIcon} label="Pengaturan" active={currentPage === 'settings'} onClick={() => setCurrentPage('settings')} />}
             <SidebarItem icon={LogOut} label="Keluar" onClick={handleLogout} />
           </div>
         </div>
@@ -5298,14 +5458,28 @@ export default function App() {
             </AnimatePresence>
 
             <div className="h-8 w-[1px] bg-slate-200" />
-            <div className="flex items-center gap-3 cursor-pointer group">
-              <div className="text-right hidden sm:block">
-                <p className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{user?.name}</p>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{user?.role}</p>
+            <div className="relative">
+              <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setShowUserMenu(!showUserMenu)}>
+                <div className="text-right hidden sm:block">
+                  <p className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{user?.name}</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{user?.role}</p>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold group-hover:border-blue-200 group-hover:bg-blue-100 transition-all overflow-hidden text-sm">
+                  {user?.name ? user.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : <UserCircle size={28} />}
+                </div>
               </div>
-              <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold group-hover:border-blue-200 group-hover:bg-blue-100 transition-all overflow-hidden text-sm">
-                {user?.name ? user.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : <UserCircle size={28} />}
-              </div>
+              {showUserMenu && (
+                <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-100 rounded-2xl shadow-xl p-2 z-50">
+                  <button onClick={() => { setShowProfileModal(true); setShowUserMenu(false); }} className="w-full flex items-center gap-2 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors">
+                    <UserCircle size={16} />
+                    Profil & Keamanan
+                  </button>
+                  <button onClick={handleLogout} className="w-full flex items-center gap-2 px-4 py-2 text-sm font-bold text-red-600 hover:bg-red-50 rounded-xl transition-colors">
+                    <LogOut size={16} />
+                    Keluar
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </header>
@@ -5324,6 +5498,16 @@ export default function App() {
             </motion.div>
           </AnimatePresence>
         </div>
+        {showProfileModal && (
+          <ProfileModal 
+            user={user} 
+            onClose={() => setShowProfileModal(false)} 
+            onSave={(updatedUser) => {
+              setUser(updatedUser);
+              showToast('Profil berhasil diperbarui!');
+            }} 
+          />
+        )}
       </main>
     </div>
   );
