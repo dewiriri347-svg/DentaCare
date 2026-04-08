@@ -18,7 +18,7 @@ import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithP
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 
 interface AuthProps {
-  onLogin: (user: { name: string; role: string; email: string }) => void;
+  onLogin: (user: { uid?: string; name: string; role: string; email: string }) => void;
   onRegister: (user: { name: string; role: string; email: string }) => void;
   users: { name: string; role: string; email: string }[];
 }
@@ -67,10 +67,10 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onRegister, users }) => {
         const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
         if (userDoc.exists()) {
           const userData = userDoc.data();
-          onLogin({ name: userData.name, role: userData.role, email: userData.email });
+          onLogin({ uid: userCredential.user.uid, name: userData.name, role: userData.role, email: userData.email });
         } else {
           // Fallback if user doc doesn't exist but auth succeeded
-          onLogin({ name: userCredential.user.email || 'User', role: 'Terapis Gigi dan Mulut', email: userCredential.user.email || '' });
+          onLogin({ uid: userCredential.user.uid, name: userCredential.user.email || 'User', role: 'Terapis Gigi dan Mulut', email: userCredential.user.email || '' });
         }
       } catch (err: any) {
         console.error(err);
@@ -113,7 +113,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onRegister, users }) => {
       const userDoc = await getDoc(doc(db, 'users', result.user.uid));
       if (userDoc.exists()) {
         const userData = userDoc.data();
-        onLogin({ name: userData.name, role: userData.role, email: userData.email });
+        onLogin({ uid: result.user.uid, name: userData.name, role: userData.role, email: userData.email });
       } else {
         // New Google user, create profile
         const newUser = {
@@ -123,7 +123,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onRegister, users }) => {
           role: 'Terapis Gigi dan Mulut' // Default role
         };
         await setDoc(doc(db, 'users', result.user.uid), newUser);
-        onLogin({ name: newUser.name, role: newUser.role, email: newUser.email });
+        onLogin({ uid: result.user.uid, name: newUser.name, role: newUser.role, email: newUser.email });
       }
     } catch (err: any) {
       console.error(err);

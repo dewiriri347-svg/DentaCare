@@ -70,7 +70,7 @@ import { Auth } from './components/Auth';
 import Markdown from 'react-markdown';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 
 // --- Types ---
 type Page = 'dashboard' | 'patients' | 'records' | 'appointments' | 'reports' | 'diagnosis-ref' | 'security' | 'billing' | 'education' | 'settings';
@@ -1645,14 +1645,16 @@ const MedicalRecord = ({
   onSelectPatient,
   onAddAppointment,
   onSave,
-  user
+  user,
+  users
 }: { 
   patients: Patient[], 
   selectedPatientId: string | null,
   onSelectPatient: (id: string) => void,
   onAddAppointment: (appointment: Omit<Appointment, 'id' | 'status'>) => void,
   onSave: () => void,
-  user: User | null
+  user: User | null,
+  users: User[]
 }) => {
   const [activeTab, setActiveTab] = useState<'anamnesis' | 'clinical' | 'diagnosis' | 'treatment' | 'consent' | 'resume' | 'riwayat' | 'evaluation'>('anamnesis');
   const [anamnesisSubTab, setAnamnesisSubTab] = useState<'medical' | 'social' | 'dental' | 'vital' | 'clinical_exam' | 'pharmacological'>('medical');
@@ -1891,8 +1893,9 @@ const MedicalRecord = ({
   const [consent, setConsent] = useState({
     patientName: '',
     relationship: '',
-    witnessName: '',
-    operatorName: '',
+    dentistName: '',
+    therapistName: '',
+    guardianName: '',
     date: new Date().toISOString().split('T')[0]
   });
 
@@ -1901,7 +1904,6 @@ const MedicalRecord = ({
   const sigTherapist = useRef<SignatureCanvas>(null);
   const sigPatient = useRef<SignatureCanvas>(null);
   const sigGuardian = useRef<SignatureCanvas>(null);
-  const sigWitness = useRef<SignatureCanvas>(null);
 
   const selectedPatient = patients.find(p => p.id === selectedPatientId);
 
@@ -4309,74 +4311,115 @@ const MedicalRecord = ({
           <div className="space-y-8">
             <div className="p-6 bg-slate-50 rounded-2xl border border-slate-200 space-y-6">
               <h3 className="text-lg font-bold text-slate-900 text-center">Persetujuan Tindakan Medik (Informed Consent)</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">Nama Pasien / Wali</label>
-                  <input 
-                    type="text" className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm"
-                    value={consent.patientName}
-                    onChange={e => setConsent({...consent, patientName: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">Hubungan dengan Pasien</label>
-                  <input 
-                    type="text" className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm"
-                    value={consent.relationship}
-                    onChange={e => setConsent({...consent, relationship: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">Nama Saksi</label>
-                  <input 
-                    type="text" className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm"
-                    value={consent.witnessName}
-                    onChange={e => setConsent({...consent, witnessName: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">Nama Operator</label>
-                  <input 
-                    type="text" className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm"
-                    value={consent.operatorName}
-                    onChange={e => setConsent({...consent, operatorName: e.target.value})}
-                  />
-                </div>
-              </div>
               <p className="text-sm text-slate-600 leading-relaxed bg-white p-4 rounded-xl border border-slate-100 italic">
                 "Saya yang bertanda tangan di bawah ini menyatakan setuju untuk dilakukan tindakan medik dental sesuai dengan penjelasan yang telah diberikan oleh tenaga medis. Saya memahami risiko dan manfaat dari tindakan tersebut."
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
-              {[
-                { ref: sigDentist, label: 'Dokter Gigi' },
-                { ref: sigTherapist, label: 'Terapis Gigi' },
-                { ref: sigPatient, label: 'Pasien/Wali' },
-                { ref: sigWitness, label: 'Saksi' },
-                { ref: sigGuardian, label: 'Orang Tua' },
-              ].map((item, i) => (
-                <div key={i} className="space-y-2">
-                  <p className="text-[10px] font-bold text-slate-500 text-center uppercase tracking-widest">{item.label}</p>
-                  <div className="bg-white border border-slate-200 rounded-xl overflow-hidden h-32 shadow-sm">
-                    <SignatureCanvas 
-                      ref={item.ref}
-                      penColor="navy"
-                      canvasProps={{ className: "w-full h-full" }}
-                    />
-                  </div>
-                  <button 
-                    onClick={() => item.ref.current?.clear()}
-                    className="w-full py-1 text-[10px] font-bold text-red-500 hover:bg-red-50 rounded transition-colors"
-                  >
-                    Hapus
-                  </button>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold text-slate-500 text-center uppercase tracking-widest">Dokter Gigi</p>
+                <select 
+                  className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm mb-2 print:appearance-none print:border-none print:bg-transparent print:p-0 print:text-center print:font-bold"
+                  value={consent.dentistName}
+                  onChange={e => setConsent({...consent, dentistName: e.target.value})}
+                >
+                  <option value="">Pilih Dokter Gigi</option>
+                  {users.filter(u => u.role === 'Dokter Gigi' || u.role === 'Admin').map(u => (
+                    <option key={u.uid || u.name} value={u.name}>{u.name}</option>
+                  ))}
+                </select>
+                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden h-32 shadow-sm print:border-none print:shadow-none">
+                  <SignatureCanvas 
+                    ref={sigDentist}
+                    penColor="navy"
+                    canvasProps={{ className: "w-full h-full" }}
+                  />
                 </div>
-              ))}
+                <button 
+                  onClick={() => sigDentist.current?.clear()}
+                  className="w-full py-1 text-[10px] font-bold text-red-500 hover:bg-red-50 rounded transition-colors print:hidden"
+                >
+                  Hapus
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold text-slate-500 text-center uppercase tracking-widest">Terapis Gigi</p>
+                <select 
+                  className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm mb-2 print:appearance-none print:border-none print:bg-transparent print:p-0 print:text-center print:font-bold"
+                  value={consent.therapistName}
+                  onChange={e => setConsent({...consent, therapistName: e.target.value})}
+                >
+                  <option value="">Pilih Terapis Gigi</option>
+                  {users.filter(u => u.role === 'Terapis Gigi dan Mulut' || u.role === 'Admin').map(u => (
+                    <option key={u.uid || u.name} value={u.name}>{u.name}</option>
+                  ))}
+                </select>
+                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden h-32 shadow-sm print:border-none print:shadow-none">
+                  <SignatureCanvas 
+                    ref={sigTherapist}
+                    penColor="navy"
+                    canvasProps={{ className: "w-full h-full" }}
+                  />
+                </div>
+                <button 
+                  onClick={() => sigTherapist.current?.clear()}
+                  className="w-full py-1 text-[10px] font-bold text-red-500 hover:bg-red-50 rounded transition-colors print:hidden"
+                >
+                  Hapus
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold text-slate-500 text-center uppercase tracking-widest">Pasien</p>
+                <input 
+                  type="text" placeholder="Nama Pasien"
+                  className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm mb-2 print:border-none print:bg-transparent print:p-0 print:text-center print:font-bold"
+                  value={consent.patientName}
+                  onChange={e => setConsent({...consent, patientName: e.target.value})}
+                />
+                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden h-32 shadow-sm print:border-none print:shadow-none">
+                  <SignatureCanvas 
+                    ref={sigPatient}
+                    penColor="navy"
+                    canvasProps={{ className: "w-full h-full" }}
+                  />
+                </div>
+                <button 
+                  onClick={() => sigPatient.current?.clear()}
+                  className="w-full py-1 text-[10px] font-bold text-red-500 hover:bg-red-50 rounded transition-colors print:hidden"
+                >
+                  Hapus
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold text-slate-500 text-center uppercase tracking-widest">Orang Tua/Wali</p>
+                <input 
+                  type="text" placeholder="Nama Orang Tua/Wali"
+                  className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm mb-2 print:border-none print:bg-transparent print:p-0 print:text-center print:font-bold"
+                  value={consent.guardianName}
+                  onChange={e => setConsent({...consent, guardianName: e.target.value})}
+                />
+                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden h-32 shadow-sm print:border-none print:shadow-none">
+                  <SignatureCanvas 
+                    ref={sigGuardian}
+                    penColor="navy"
+                    canvasProps={{ className: "w-full h-full" }}
+                  />
+                </div>
+                <button 
+                  onClick={() => sigGuardian.current?.clear()}
+                  className="w-full py-1 text-[10px] font-bold text-red-500 hover:bg-red-50 rounded transition-colors print:hidden"
+                >
+                  Hapus
+                </button>
+              </div>
             </div>
             <div className="flex justify-end gap-3 pt-6 border-t border-slate-100 print:hidden">
               <button 
-                onClick={() => { if(confirm('Batalkan Informed Consent?')) { sigDentist.current?.clear(); sigTherapist.current?.clear(); sigPatient.current?.clear(); sigGuardian.current?.clear(); sigWitness.current?.clear(); } }}
+                onClick={() => { if(confirm('Batalkan Informed Consent?')) { sigDentist.current?.clear(); sigTherapist.current?.clear(); sigPatient.current?.clear(); sigGuardian.current?.clear(); } }}
                 className="px-6 py-3 border border-slate-200 rounded-xl font-bold text-slate-600 hover:bg-slate-50 transition-all"
               >
                 Batal
@@ -5297,18 +5340,33 @@ export default function App() {
             const userData = userDoc.data();
             setUser({ uid: firebaseUser.uid, name: userData.name, role: userData.role, email: userData.email });
             setIsLoggedIn(true);
+            
+            // Load app data
+            const appDataDoc = await getDoc(doc(db, 'users', firebaseUser.uid, 'appData', 'state'));
+            if (appDataDoc.exists()) {
+              const appData = appDataDoc.data();
+              if (appData.patients) setPatients(appData.patients);
+              if (appData.appointments) setAppointments(appData.appointments);
+              if (appData.invoices) setInvoices(appData.invoices);
+            }
+            
+            // Load all users for dropdowns
+            try {
+              const usersSnapshot = await getDocs(collection(db, 'users'));
+              const usersList: User[] = [];
+              usersSnapshot.forEach(doc => {
+                const data = doc.data();
+                usersList.push({ uid: doc.id, name: data.name, role: data.role, email: data.email });
+              });
+              setUsers(usersList);
+            } catch (err) {
+              console.error("Error fetching users list:", err);
+            }
           } else {
-            setUser({ uid: firebaseUser.uid, name: firebaseUser.displayName || firebaseUser.email || 'User', role: 'Terapis Gigi dan Mulut', email: firebaseUser.email || '' });
-            setIsLoggedIn(true);
-          }
-          
-          // Load app data
-          const appDataDoc = await getDoc(doc(db, 'users', firebaseUser.uid, 'appData', 'state'));
-          if (appDataDoc.exists()) {
-            const appData = appDataDoc.data();
-            if (appData.patients) setPatients(appData.patients);
-            if (appData.appointments) setAppointments(appData.appointments);
-            if (appData.invoices) setInvoices(appData.invoices);
+            // Document doesn't exist yet (e.g., during registration).
+            // We do NOT set isLoggedIn(true) here. Let Auth.tsx handle the document creation and call onLogin.
+            // But if it's a Google login that somehow failed to create the document, we might need a fallback.
+            // For now, we rely on Auth.tsx to call onLogin.
           }
         } catch (error) {
           console.error("Error fetching user data:", error);
@@ -5333,9 +5391,31 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentPage, selectedPatientId]);
 
-  const handleLogin = (userData: User) => {
+  const handleLogin = async (userData: User) => {
     setUser(userData);
     setIsLoggedIn(true);
+    if (userData.uid) {
+      try {
+        const appDataDoc = await getDoc(doc(db, 'users', userData.uid, 'appData', 'state'));
+        if (appDataDoc.exists()) {
+          const appData = appDataDoc.data();
+          if (appData.patients) setPatients(appData.patients);
+          if (appData.appointments) setAppointments(appData.appointments);
+          if (appData.invoices) setInvoices(appData.invoices);
+        }
+        
+        // Load all users for dropdowns
+        const usersSnapshot = await getDocs(collection(db, 'users'));
+        const usersList: User[] = [];
+        usersSnapshot.forEach(doc => {
+          const data = doc.data();
+          usersList.push({ uid: doc.id, name: data.name, role: data.role, email: data.email });
+        });
+        setUsers(usersList);
+      } catch (error) {
+        console.error("Error fetching app data on login:", error);
+      }
+    }
   };
 
   const handleRegister = (userData: User) => {
@@ -5438,6 +5518,7 @@ export default function App() {
           onAddAppointment={handleAddAppointment}
           onSave={() => handleSave('Rekam Medis berhasil disimpan!')}
           user={user}
+          users={users}
         />
       );
       case 'appointments': return (
