@@ -13,22 +13,27 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
+import { auth, db, googleProvider } from '../firebase';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 
 interface AuthProps {
   onLogin: (user: { name: string; role: string; email: string }) => void;
+  onRegister: (user: { name: string; role: string; email: string }) => void;
+  users: { name: string; role: string; email: string }[];
 }
 
-export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
+export const Auth: React.FC<AuthProps> = ({ onLogin, onRegister, users }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [captcha, setCaptcha] = useState('');
   const [captchaInput, setCaptchaInput] = useState('');
   const [formData, setFormData] = useState({
-    user: 'dewi',
-    password: 'password123',
+    user: '',
+    password: '',
     role: 'Terapis Gigi dan Mulut',
-    name: 'Dewi',
-    email: 'dewi@example.com'
+    name: '',
+    email: ''
   });
   const [error, setError] = useState('');
 
@@ -46,7 +51,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     generateCaptcha();
   }, [generateCaptcha]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -57,48 +62,73 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     }
 
     if (isLogin) {
-      // Mock login
-      if (formData.user && formData.password) {
-        let name = 'Drg. Rizky';
-        let role = 'Dokter Gigi';
-        let email = 'rizky@example.com';
-        
-        if (formData.user.toLowerCase() === 'admin') {
-          name = 'Administrator';
-          role = 'Admin';
-          email = 'admin@example.com';
-        } else if (formData.user.toLowerCase() === 'dewi') {
-          name = 'Dewi';
-          role = 'Terapis Gigi dan Mulut';
-          email = 'dewi@example.com';
-        } else if (formData.user.toLowerCase() === 'dosen') {
-          name = 'Dosen Pembimbing';
-          role = 'Dosen';
-          email = 'dosen@example.com';
-        } else if (formData.user.toLowerCase() === 'pasien') {
-          name = 'Pasien Demo';
-          role = 'Pasien';
-          email = 'pasien@example.com';
+      try {
+        const userCredential = await signInWithEmailAndPassword(auth, formData.user, formData.password);
+        const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          onLogin({ name: userData.name, role: userData.role, email: userData.email });
+        } else {
+          // Fallback if user doc doesn't exist but auth succeeded
+          onLogin({ name: userCredential.user.email || 'User', role: 'Terapis Gigi dan Mulut', email: userCredential.user.email || '' });
         }
-
-        onLogin({ name, role, email });
-      } else {
-        setError('Username dan password wajib diisi');
+      } catch (err: any) {
+        console.error(err);
+        setError('Username/email atau password salah');
       }
     } else {
-      // Mock register
+      // Register
       if (formData.user && formData.password && formData.name && formData.email) {
-        onLogin({ name: formData.name, role: formData.role, email: formData.email });
+        try {
+          const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+          const newUser = {
+            uid: userCredential.user.uid,
+            name: formData.name,
+            email: formData.email,
+            role: formData.role
+          };
+          await setDoc(doc(db, 'users', userCredential.user.uid), newUser);
+          
+          // Sign out immediately to force manual login
+          await auth.signOut();
+          
+          alert('Pendaftaran berhasil! Silakan login menggunakan email dan password Anda.');
+          setIsLogin(true);
+          setFormData({ ...formData, password: '', user: formData.email });
+          generateCaptcha();
+          setCaptchaInput('');
+        } catch (err: any) {
+          console.error(err);
+          setError(err.message || 'Gagal mendaftar');
+        }
       } else {
         setError('Semua field wajib diisi');
       }
     }
   };
 
-  const handleGoogleLogin = () => {
-    // In a real app, this would trigger the OAuth flow
-    console.log('Google Login Triggered');
-    onLogin({ name: 'User Google', role: 'Dokter Gigi', email: 'google@example.com' });
+  const handleGoogleLogin = async () => {
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const userDoc = await getDoc(doc(db, 'users', result.user.uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        onLogin({ name: userData.name, role: userData.role, email: userData.email });
+      } else {
+        // New Google user, create profile
+        const newUser = {
+          uid: result.user.uid,
+          name: result.user.displayName || 'User Google',
+          email: result.user.email || '',
+          role: 'Terapis Gigi dan Mulut' // Default role
+        };
+        await setDoc(doc(db, 'users', result.user.uid), newUser);
+        onLogin({ name: newUser.name, role: newUser.role, email: newUser.email });
+      }
+    } catch (err: any) {
+      console.error(err);
+      setError('Gagal masuk dengan Google');
+    }
   };
 
   return (
@@ -134,11 +164,27 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                       <input 
                         type="text" 
-                        required
+                        required={!isLogin}
+                        autoComplete="off"
                         className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
                         placeholder="Masukkan nama lengkap"
                         value={formData.name}
                         onChange={(e) => setFormData({...formData, name: e.target.value})}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Email</label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <input 
+                        type="email" 
+                        required={!isLogin}
+                        autoComplete="off"
+                        className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+                        placeholder="Masukkan email"
+                        value={formData.email}
+                        onChange={(e) => setFormData({...formData, email: e.target.value, user: e.target.value})}
                       />
                     </div>
                   </div>
@@ -163,20 +209,23 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
               )}
             </AnimatePresence>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Username / Email</label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input 
-                  type="text" 
-                  required
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
-                  placeholder="Username atau email"
-                  value={formData.user}
-                  onChange={(e) => setFormData({...formData, user: e.target.value})}
-                />
+            {isLogin && (
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Email</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <input 
+                    type="email" 
+                    required
+                    autoComplete="off"
+                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+                    placeholder="Email"
+                    value={formData.user}
+                    onChange={(e) => setFormData({...formData, user: e.target.value})}
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             <div>
               <div className="flex items-center justify-between mb-1">
@@ -190,6 +239,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
                 <input 
                   type={showPassword ? 'text' : 'password'} 
                   required
+                  autoComplete="new-password"
                   className="w-full pl-10 pr-12 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
                   placeholder="••••••••"
                   value={formData.password}

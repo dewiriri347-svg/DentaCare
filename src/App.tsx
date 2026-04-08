@@ -68,6 +68,9 @@ import { HUMAN_NEEDS, TREATMENTS_2023 } from './constants/medicalData';
 import SignatureCanvas from 'react-signature-canvas';
 import { Auth } from './components/Auth';
 import Markdown from 'react-markdown';
+import { auth, db } from './firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 
 // --- Types ---
 type Page = 'dashboard' | 'patients' | 'records' | 'appointments' | 'reports' | 'diagnosis-ref' | 'security' | 'billing' | 'education' | 'settings';
@@ -75,6 +78,7 @@ type Page = 'dashboard' | 'patients' | 'records' | 'appointments' | 'reports' | 
 type UserRole = 'Admin' | 'Dokter Gigi' | 'Terapis Gigi dan Mulut' | 'Dosen' | 'Pasien';
 
 interface User {
+  uid?: string;
   name: string;
   role: UserRole;
   email: string;
@@ -1062,14 +1066,35 @@ const Education = ({ onSave }: { onSave: () => void }) => {
   
   const EDUCATIONS = [
     { id: 1, title: 'Cara Menyikat Gigi yang Benar', category: 'dasar', description: 'Panduan langkah demi langkah menyikat gigi dengan teknik Bass.', icon: Stethoscope, color: 'text-blue-600', bg: 'bg-blue-50', videoId: 'v5oQeXrkWMA' },
-    { id: 2, title: 'Pentingnya Flossing', category: 'dasar', description: 'Mengapa menyikat gigi saja tidak cukup untuk menjaga kebersihan sela gigi.', icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50', videoId: 'CXTrhbS5GL0' },
-    { id: 3, title: 'Kesehatan Gigi Anak', category: 'anak', description: 'Tips menjaga gigi susu agar tetap sehat dan mencegah karies sejak dini.', icon: Users, color: 'text-amber-600', bg: 'bg-amber-50', videoId: 'c9KtZ0Z8ZQE' },
-    { id: 4, title: 'Makanan yang Merusak Gigi', category: 'nutrisi', description: 'Daftar makanan dan minuman yang perlu dihindari untuk mencegah lubang gigi.', icon: AlertCircle, color: 'text-red-600', bg: 'bg-red-50', videoId: 'k5Kz3xQzqF0' },
+    { id: 2, title: 'Pentingnya Flossing', category: 'dasar', description: 'Mengapa menyikat gigi saja tidak cukup untuk menjaga kebersihan sela gigi.', icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50', videoId: 'kLLSvCr5ksQ' },
+    { id: 3, title: 'Kesehatan Gigi Anak', category: 'anak', description: 'Tips menjaga gigi susu agar tetap sehat dan mencegah karies sejak dini.', icon: Users, color: 'text-amber-600', bg: 'bg-amber-50', videoId: 'CMSDfP9W58o' },
+    { id: 4, title: 'Makanan yang Merusak Gigi', category: 'nutrisi', description: 'Daftar makanan dan minuman yang perlu dihindari untuk mencegah lubang gigi.', icon: AlertCircle, color: 'text-red-600', bg: 'bg-red-50', videoId: 'bTwh-7hvrKI' },
     { id: 5, title: 'Prosedur Scaling Gigi', category: 'perawatan', description: 'Apa itu scaling dan mengapa Anda membutuhkannya setiap 6 bulan.', icon: Activity, color: 'text-purple-600', bg: 'bg-purple-50' },
-    { id: 6, title: 'Gigi Sensitif: Penyebab & Solusi', category: 'perawatan', description: 'Memahami dentin yang terbuka dan cara mengatasinya.', icon: Stethoscope, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+    { id: 6, title: 'Gigi Sensitif: Penyebab & Solusi', category: 'perawatan', description: 'Memahami dentin yang terbuka dan cara mengatasinya.', icon: Stethoscope, color: 'text-indigo-600', bg: 'bg-indigo-50', videoId: 'd56wKFrtRgU' },
   ];
 
   const filtered = activeCategory === 'all' ? EDUCATIONS : EDUCATIONS.filter(e => e.category === activeCategory);
+
+  useEffect(() => {
+    if (selectedVideo) {
+      window.history.pushState({ videoOpen: true }, '');
+      
+      const handlePopState = () => {
+        setSelectedVideo(null);
+      };
+      
+      window.addEventListener('popstate', handlePopState);
+      return () => window.removeEventListener('popstate', handlePopState);
+    }
+  }, [selectedVideo]);
+
+  const closeVideo = () => {
+    if (window.history.state?.videoOpen) {
+      window.history.back();
+    } else {
+      setSelectedVideo(null);
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -1139,7 +1164,7 @@ const Education = ({ onSave }: { onSave: () => void }) => {
             >
               <div className="p-6 border-b border-slate-100 flex items-center justify-between">
                 <h3 className="text-xl font-bold text-slate-900">Video Edukasi</h3>
-                <button onClick={() => setSelectedVideo(null)} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400">
+                <button onClick={closeVideo} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400">
                   <X size={20} />
                 </button>
               </div>
@@ -1155,7 +1180,10 @@ const Education = ({ onSave }: { onSave: () => void }) => {
                 ></iframe>
               </div>
               <div className="p-6 flex justify-end">
-                <button onClick={() => setSelectedVideo(null)} className="px-6 py-3 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all">Tutup</button>
+                <button onClick={closeVideo} className="flex items-center gap-2 px-6 py-3 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all">
+                  <ChevronRight size={18} className="rotate-180" />
+                  Kembali
+                </button>
               </div>
             </motion.div>
           </div>
@@ -1177,6 +1205,7 @@ interface Invoice {
 const Billing = ({ invoices, setInvoices, onSave }: { invoices: Invoice[], setInvoices: React.Dispatch<React.SetStateAction<Invoice[]>>, onSave: () => void }) => {
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [printingInvoice, setPrintingInvoice] = useState<Invoice | null>(null);
+  const [printingAll, setPrintingAll] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredInvoices = invoices.filter(inv => 
@@ -1189,13 +1218,14 @@ const Billing = ({ invoices, setInvoices, onSave }: { invoices: Invoice[], setIn
   };
 
   useEffect(() => {
-    if (printingInvoice) {
+    if (printingInvoice || printingAll) {
       setTimeout(() => {
         window.print();
         setPrintingInvoice(null);
+        setPrintingAll(false);
       }, 500);
     }
-  }, [printingInvoice]);
+  }, [printingInvoice, printingAll]);
 
   const handleSaveEdit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1203,85 +1233,90 @@ const Billing = ({ invoices, setInvoices, onSave }: { invoices: Invoice[], setIn
     setEditingInvoice(null);
   };
 
-  if (printingInvoice) {
+  if (printingInvoice || printingAll) {
+    const invoicesToPrint = printingAll ? filteredInvoices : [printingInvoice!];
     return (
-      <div className="print-container bg-white p-12 max-w-2xl mx-auto border shadow-sm print:shadow-none print:border-none">
-        <div className="flex justify-between items-start mb-10 pb-6 border-b-2 border-slate-900">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white">
-                <Activity size={18} />
+      <div className="print-container bg-white p-12 max-w-4xl mx-auto border shadow-sm print:shadow-none print:border-none print:p-0">
+        {invoicesToPrint.map((inv, index) => (
+          <div key={inv.id} className={index > 0 ? "mt-24 pt-12 border-t-2 border-dashed border-slate-200 print:break-before-page print:mt-0 print:pt-0 print:border-none" : ""}>
+            <div className="flex justify-between items-start mb-10 pb-6 border-b-2 border-slate-900">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white">
+                    <Activity size={18} />
+                  </div>
+                  <h1 className="text-xl font-black text-slate-900">DentaCare</h1>
+                </div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Digital RME & Billing System</p>
+                <p className="text-[10px] text-slate-500 mt-1">Jl. Kesehatan No. 123, Jakarta Selatan</p>
+                <p className="text-[10px] text-slate-500">Telp: (021) 1234-5678</p>
               </div>
-              <h1 className="text-xl font-black text-slate-900">DentaCare</h1>
+              <div className="text-right">
+                <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Kwitansi</h2>
+                <p className="text-xs font-bold text-blue-600 mt-1">No: {inv.id}</p>
+                <p className="text-[10px] text-slate-400 mt-1">{inv.date}</p>
+              </div>
             </div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Digital RME & Billing System</p>
-            <p className="text-[10px] text-slate-500 mt-1">Jl. Kesehatan No. 123, Jakarta Selatan</p>
-            <p className="text-[10px] text-slate-500">Telp: (021) 1234-5678</p>
-          </div>
-          <div className="text-right">
-            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Kwitansi</h2>
-            <p className="text-xs font-bold text-blue-600 mt-1">No: {printingInvoice.id}</p>
-            <p className="text-[10px] text-slate-400 mt-1">{printingInvoice.date}</p>
-          </div>
-        </div>
 
-        <div className="grid grid-cols-2 gap-12 mb-10">
-          <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 border-b border-slate-100 pb-1">Pasien / Penerima:</p>
-            <p className="text-lg font-bold text-slate-900">{printingInvoice.patient}</p>
-            <p className="text-xs text-slate-500 mt-1 italic">ID Pasien: RM-{Math.floor(Math.random() * 1000).toString().padStart(3, '0')}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 border-b border-slate-100 pb-1 text-right">Detail Pembayaran:</p>
-            <p className="text-sm font-bold text-slate-900">Metode: {printingInvoice.method}</p>
-            <p className="text-xs text-slate-500 mt-1">Status: <span className="text-emerald-600 font-bold uppercase">{printingInvoice.status}</span></p>
-          </div>
-        </div>
+            <div className="grid grid-cols-2 gap-12 mb-10">
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 border-b border-slate-100 pb-1">Pasien / Penerima:</p>
+                <p className="text-lg font-bold text-slate-900">{inv.patient}</p>
+                <p className="text-xs text-slate-500 mt-1 italic">ID Pasien: RM-{Math.floor(Math.random() * 1000).toString().padStart(3, '0')}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 border-b border-slate-100 pb-1 text-right">Detail Pembayaran:</p>
+                <p className="text-sm font-bold text-slate-900">Metode: {inv.method}</p>
+                <p className="text-xs text-slate-500 mt-1">Status: <span className="text-emerald-600 font-bold uppercase">{inv.status}</span></p>
+              </div>
+            </div>
 
-        <div className="mb-12">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b-2 border-slate-900">
-                <th className="py-3 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Deskripsi Layanan</th>
-                <th className="py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-b border-slate-100">
-                <td className="py-5">
-                  <p className="text-sm font-bold text-slate-900">Biaya Tindakan Medis & Konsultasi</p>
-                  <p className="text-[10px] text-slate-500 mt-1">Pemeriksaan rutin, pembersihan karang gigi, dan konsultasi dokter.</p>
-                </td>
-                <td className="py-5 text-right text-sm font-bold text-slate-900 align-top">Rp {printingInvoice.amount.toLocaleString()}</td>
-              </tr>
-            </tbody>
-            <tfoot>
-              <tr>
-                <td className="py-8 text-right font-black text-slate-400 uppercase text-[10px] tracking-widest">Total Bayar</td>
-                <td className="py-8 text-right text-3xl font-black text-blue-600">Rp {printingInvoice.amount.toLocaleString()}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+            <div className="mb-12">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b-2 border-slate-900">
+                    <th className="py-3 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">Deskripsi Layanan</th>
+                    <th className="py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-slate-100">
+                    <td className="py-5">
+                      <p className="text-sm font-bold text-slate-900">Biaya Tindakan Medis & Konsultasi</p>
+                      <p className="text-[10px] text-slate-500 mt-1">Pemeriksaan rutin, pembersihan karang gigi, dan konsultasi dokter.</p>
+                    </td>
+                    <td className="py-5 text-right text-sm font-bold text-slate-900 align-top">Rp {inv.amount.toLocaleString()}</td>
+                  </tr>
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td className="py-8 text-right font-black text-slate-400 uppercase text-[10px] tracking-widest">Total Bayar</td>
+                    <td className="py-8 text-right text-3xl font-black text-blue-600">Rp {inv.amount.toLocaleString()}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
 
-        <div className="grid grid-cols-2 gap-12 items-end">
-          <div className="text-[9px] text-slate-400 leading-relaxed italic border-l-2 border-blue-100 pl-4">
-            <p className="font-bold text-slate-500 mb-1 not-italic">Catatan:</p>
-            <p>1. Kwitansi ini adalah bukti pembayaran yang sah.</p>
-            <p>2. Pembayaran yang sudah dilakukan tidak dapat ditarik kembali.</p>
-            <p>3. Terima kasih telah mempercayakan kesehatan gigi Anda kepada DentaCare.</p>
+            <div className="grid grid-cols-2 gap-12 items-end">
+              <div className="text-[9px] text-slate-400 leading-relaxed italic border-l-2 border-blue-100 pl-4">
+                <p className="font-bold text-slate-500 mb-1 not-italic">Catatan:</p>
+                <p>1. Kwitansi ini adalah bukti pembayaran yang sah.</p>
+                <p>2. Pembayaran yang sudah dilakukan tidak dapat ditarik kembali.</p>
+                <p>3. Terima kasih telah mempercayakan kesehatan gigi Anda kepada DentaCare.</p>
+              </div>
+              <div className="text-center">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-16">Kasir / Administrasi</p>
+                <div className="w-48 h-px bg-slate-900 mx-auto mb-2"></div>
+                <p className="text-xs font-bold text-slate-900">DentaCare Digital System</p>
+                <p className="text-[9px] text-slate-400 mt-1">Dicetak pada: {new Date().toLocaleString('id-ID')}</p>
+              </div>
+            </div>
           </div>
-          <div className="text-center">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-16">Kasir / Administrasi</p>
-            <div className="w-48 h-px bg-slate-900 mx-auto mb-2"></div>
-            <p className="text-xs font-bold text-slate-900">DentaCare Digital System</p>
-            <p className="text-[9px] text-slate-400 mt-1">Dicetak pada: {new Date().toLocaleString('id-ID')}</p>
-          </div>
-        </div>
+        ))}
         
         <div className="mt-12 pt-8 border-t border-slate-100 flex justify-center gap-4 print:hidden">
           <button 
-            onClick={() => setPrintingInvoice(null)}
+            onClick={() => { setPrintingInvoice(null); setPrintingAll(false); }}
             className="px-8 py-3 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all flex items-center gap-2"
           >
             <ChevronRight size={18} className="rotate-180" />
@@ -1307,6 +1342,13 @@ const Billing = ({ invoices, setInvoices, onSave }: { invoices: Invoice[], setIn
           <p className="text-slate-500">Kelola invoice dan pembayaran pasien</p>
         </div>
         <div className="flex gap-3">
+          <button 
+            onClick={() => setPrintingAll(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-200 transition-all"
+          >
+            <Printer size={16} />
+            Cetak Semua
+          </button>
           <button 
             onClick={onSave}
             className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200"
@@ -4424,7 +4466,11 @@ const MedicalRecord = ({
             </div>
             <div className="flex justify-end gap-3 pt-6 border-t border-slate-100 print:hidden">
               <button 
-                onClick={() => { if(confirm('Batalkan perubahan resume?')) { /* logic */ } }}
+                onClick={() => { 
+                  if(confirm('Batalkan perubahan resume?')) { 
+                    setAiAnalysis('');
+                  } 
+                }}
                 className="px-6 py-3 border border-slate-200 rounded-xl font-bold text-slate-600 hover:bg-slate-50 transition-all"
               >
                 Batal
@@ -4499,7 +4545,11 @@ const MedicalRecord = ({
             </div>
             <div className="flex justify-end gap-3 pt-6 border-t border-slate-100 print:hidden">
               <button 
-                onClick={() => { if(confirm('Batalkan perubahan riwayat?')) { /* logic */ } }}
+                onClick={() => { 
+                  if(confirm('Batalkan perubahan riwayat?')) { 
+                    setSearchTerm('');
+                  } 
+                }}
                 className="px-6 py-3 border border-slate-200 rounded-xl font-bold text-slate-600 hover:bg-slate-50 transition-all"
               >
                 Batal
@@ -5030,7 +5080,7 @@ const DiagnosisReference = ({ onSave }: { onSave: () => void }) => (
 
 // --- Main App ---
 
-const ProfileModal = ({ user, onClose, onSave }: { user: User | null, onClose: () => void, onSave: (updatedUser: User) => void }) => {
+const ProfileModal = ({ user, onClose, onSave, onSyncData }: { user: User | null, onClose: () => void, onSave: (updatedUser: User) => void, onSyncData: () => void }) => {
   const [name, setName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
   const [role, setRole] = useState<UserRole>(user?.role || 'Pasien');
@@ -5105,8 +5155,11 @@ const ProfileModal = ({ user, onClose, onSave }: { user: User | null, onClose: (
           </div>
         </div>
         <div className="flex gap-3 mt-8">
+          <button onClick={onSyncData} className="flex-1 px-6 py-3 bg-green-600 text-white rounded-2xl font-bold hover:bg-green-700 flex items-center justify-center gap-2"><Save size={18} /> Simpan Data</button>
+        </div>
+        <div className="flex gap-3 mt-4">
           <button onClick={onClose} className="flex-1 px-6 py-3 bg-slate-100 text-slate-700 rounded-2xl font-bold hover:bg-slate-200">Batal</button>
-          <button onClick={handleSave} className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700">Simpan</button>
+          <button onClick={handleSave} className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700">Update Profil</button>
         </div>
       </div>
     </div>
@@ -5148,6 +5201,13 @@ const PatientVerification = ({ onVerify, patients }: { onVerify: (id: string) =>
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [users, setUsers] = useState<User[]>([
+    { name: 'Administrator', role: 'Admin', email: 'admin@example.com' },
+    { name: 'Dewi', role: 'Terapis Gigi dan Mulut', email: 'dewi@example.com' },
+    { name: 'Dosen Pembimbing', role: 'Dosen', email: 'dosen@example.com' },
+    { name: 'Pasien Demo', role: 'Pasien', email: 'pasien@example.com' }
+  ]);
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isPatientVerified, setIsPatientVerified] = useState(false);
@@ -5229,6 +5289,41 @@ export default function App() {
   };
 
   React.useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setUser({ uid: firebaseUser.uid, name: userData.name, role: userData.role, email: userData.email });
+            setIsLoggedIn(true);
+          } else {
+            setUser({ uid: firebaseUser.uid, name: firebaseUser.displayName || firebaseUser.email || 'User', role: 'Terapis Gigi dan Mulut', email: firebaseUser.email || '' });
+            setIsLoggedIn(true);
+          }
+          
+          // Load app data
+          const appDataDoc = await getDoc(doc(db, 'users', firebaseUser.uid, 'appData', 'state'));
+          if (appDataDoc.exists()) {
+            const appData = appDataDoc.data();
+            if (appData.patients) setPatients(appData.patients);
+            if (appData.appointments) setAppointments(appData.appointments);
+            if (appData.invoices) setInvoices(appData.invoices);
+          }
+        } catch (error) {
+          console.error("Error fetching user data:", error);
+        }
+      } else {
+        setUser(null);
+        setIsLoggedIn(false);
+      }
+      setIsAuthReady(true);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         handleBack();
@@ -5243,10 +5338,43 @@ export default function App() {
     setIsLoggedIn(true);
   };
 
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    setUser(null);
-    setCurrentPage('dashboard');
+  const handleRegister = (userData: User) => {
+    setUsers(prev => [...prev, userData]);
+    setUser(userData);
+    setIsLoggedIn(true);
+    showToast('Pendaftaran berhasil!');
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setIsLoggedIn(false);
+      setUser(null);
+      setCurrentPage('dashboard');
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
+  };
+
+  const handleSyncData = async () => {
+    if (!user?.uid) {
+      showToast('Gagal menyimpan: Pengguna tidak valid', 'error');
+      return;
+    }
+    try {
+      showToast('Menyimpan data ke cloud...', 'success');
+      const { setDoc } = await import('firebase/firestore');
+      await setDoc(doc(db, 'users', user.uid, 'appData', 'state'), {
+        patients,
+        appointments,
+        invoices,
+        lastUpdated: new Date().toISOString()
+      });
+      showToast('Data berhasil disimpan ke cloud!', 'success');
+    } catch (error) {
+      console.error("Error saving data:", error);
+      showToast('Gagal menyimpan data', 'error');
+    }
   };
 
   const canAccess = (page: Page) => {
@@ -5275,8 +5403,12 @@ export default function App() {
     setPatients(patients.filter(p => p.id !== id));
   };
 
+  if (!isAuthReady) {
+    return <div className="min-h-screen flex items-center justify-center bg-slate-50">Loading...</div>;
+  }
+
   if (!isLoggedIn) {
-    return <Auth onLogin={handleLogin} />;
+    return <Auth onLogin={handleLogin} onRegister={handleRegister} users={users} />;
   }
 
   const renderPage = () => {
@@ -5345,7 +5477,7 @@ export default function App() {
       </AnimatePresence>
       {/* Sidebar */}
       <aside className={cn(
-        "fixed inset-y-0 left-0 z-50 bg-white border-r border-slate-200 transition-all duration-300 ease-in-out",
+        "fixed inset-y-0 left-0 z-50 bg-white border-r border-slate-200 transition-all duration-300 ease-in-out print:hidden",
         isSidebarOpen ? "w-72" : "w-20"
       )}>
         <div className="h-full flex flex-col p-4">
@@ -5506,6 +5638,10 @@ export default function App() {
               setUser(updatedUser);
               showToast('Profil berhasil diperbarui!');
             }} 
+            onSyncData={() => {
+              handleSyncData();
+              setShowProfileModal(false);
+            }}
           />
         )}
       </main>
