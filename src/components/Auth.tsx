@@ -9,7 +9,8 @@ import {
   ArrowRight, 
   Stethoscope,
   UserCircle,
-  LogIn
+  LogIn,
+  AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
@@ -119,7 +120,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onRegister, users }) => {
         const newUser = {
           uid: result.user.uid,
           name: result.user.displayName || 'User Google',
-          email: result.user.email || '',
+          email: result.user.email || `${result.user.uid}@no-email.com`,
           role: 'Terapis Gigi dan Mulut' // Default role
         };
         await setDoc(doc(db, 'users', result.user.uid), newUser);
@@ -127,7 +128,15 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onRegister, users }) => {
       }
     } catch (err: any) {
       console.error(err);
-      setError('Gagal masuk dengan Google');
+      if (err.code === 'auth/unauthorized-domain') {
+        setError('Domain ini belum diizinkan di Firebase Console. Silakan tambahkan domain ini ke daftar Authorized Domains.');
+      } else if (err.code === 'auth/popup-closed-by-user') {
+        setError('Login dibatalkan oleh pengguna.');
+      } else if (err.code === 'auth/operation-not-allowed') {
+        setError('Login Google belum diaktifkan di Firebase Console. Silakan aktifkan penyedia login Google.');
+      } else {
+        setError('Gagal masuk dengan Google: ' + (err.message || 'Error tidak diketahui'));
+      }
     }
   };
 
@@ -332,6 +341,14 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, onRegister, users }) => {
               {isLogin ? 'Daftar Baru' : 'Masuk di sini'}
             </button>
           </p>
+
+          <div className="mt-6 p-4 bg-amber-50 rounded-xl border border-amber-200 flex items-start gap-3">
+            <AlertCircle className="text-amber-600 shrink-0 mt-0.5" size={16} />
+            <p className="text-xs text-amber-800 leading-relaxed">
+              <strong>Kendala Login Google?</strong><br/>
+              Jika popup tidak muncul atau gagal, pastikan browser Anda tidak memblokir <em>third-party cookies</em>, atau coba <strong>buka aplikasi ini di tab baru</strong>.
+            </p>
+          </div>
         </div>
       </motion.div>
     </div>
