@@ -123,6 +123,28 @@ interface Appointment {
   status: 'confirmed' | 'pending';
 }
 
+// --- Constants for Dropdowns ---
+const INDONESIAN_CITIES = [
+  "Jakarta", "Surabaya", "Bandung", "Medan", "Semarang", "Makassar", "Palembang", "Tangerang", "South Tangerang", 
+  "Depok", "Bekasi", "Batam", "Bogor", "Padang", "Bandar Lampung", "Malang", "Denpasar", "Samarinda", "Tasikmalaya", 
+  "Serang", "Banjarmasin", "Pontianak", "Cimahi", "Balikpapan", "Jambi", "Surakarta", "Mataram", "Manado", 
+  "Yogyakarta", "Cilegon", "Kupang", "Palu", "Ambon", "Jayapura"
+].sort();
+
+const RELIGIONS = ["Islam", "Kristen Protestan", "Katolik", "Hindu", "Buddha", "Khonghucu"];
+
+const OCCUPATIONS = [
+  "PNS", "Pegawai Swasta", "TNI/Polri", "Wiraswasta", "Pelajar/Mahasiswa", 
+  "Tenaga Medis", "Buruh", "Ibu Rumah Tangga", "Pensiunan", "Lainnya"
+];
+
+const MARITAL_STATUSES = ["Belum Menikah", "Menikah", "Janda/Duda"];
+
+const TRIBES = [
+  "Jawa", "Sunda", "Batak", "Madura", "Betawi", "Minangkabau", "Bugis", "Melayu", 
+  "Banten", "Banjar", "Bali", "Sasak", "Dayak", "Toraja", "Papua", "Manado", "Lainnya"
+].sort();
+
 // --- Mock Data ---
 const MOCK_PATIENTS: Patient[] = [
   { id: '1', name: 'Ahmad Subarjo', nik: '3201012345678901', mrNumber: 'RM-001', birthDate: '1985-05-12', gender: 'L', address: 'Jl. Merdeka No. 10', phone: '08123456789', insurance: 'BPJS', status: 'active', examiningDentist: 'Drg. Rizky Ramadhan', examiningTherapist: 'Dewi Sri Rahmawati' },
@@ -616,7 +638,7 @@ const PatientMaster = ({
     tribe: '',
     weight: '',
     height: '',
-    examiningDentist: '',
+    examiningDentist: 'drg. Bambang Adicahyono',
     examiningTherapist: 'Dewi Sri Rahmawati',
     referralSource: ''
   });
@@ -648,7 +670,7 @@ const PatientMaster = ({
         tribe: patient.tribe || '',
         weight: patient.weight || '',
         height: patient.height || '',
-        examiningDentist: patient.examiningDentist || '',
+        examiningDentist: patient.examiningDentist || 'drg. Bambang Adicahyono',
         examiningTherapist: patient.examiningTherapist || '',
         referralSource: patient.referralSource || ''
       });
@@ -672,7 +694,7 @@ const PatientMaster = ({
         tribe: '',
         weight: '',
         height: '',
-        examiningDentist: '',
+        examiningDentist: 'drg. Bambang Adicahyono',
         examiningTherapist: 'Dewi Sri Rahmawati',
         referralSource: ''
       });
@@ -879,12 +901,16 @@ const PatientMaster = ({
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-2">Tempat Lahir</label>
-                    <input 
-                      type="text"
+                    <select 
                       className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       value={formData.birthPlace}
                       onChange={e => setFormData({...formData, birthPlace: e.target.value})}
-                    />
+                    >
+                      <option value="">Pilih Kota</option>
+                      {INDONESIAN_CITIES.map(city => (
+                        <option key={city} value={city}>{city}</option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-2">Tanggal Lahir</label>
@@ -908,21 +934,29 @@ const PatientMaster = ({
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-2">Agama</label>
-                    <input 
-                      type="text"
+                    <select 
                       className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       value={formData.religion}
                       onChange={e => setFormData({...formData, religion: e.target.value})}
-                    />
+                    >
+                      <option value="">Pilih Agama</option>
+                      {RELIGIONS.map(religion => (
+                        <option key={religion} value={religion}>{religion}</option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-2">Pekerjaan</label>
-                    <input 
-                      type="text"
+                    <select 
                       className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       value={formData.occupation}
                       onChange={e => setFormData({...formData, occupation: e.target.value})}
-                    />
+                    >
+                      <option value="">Pilih Pekerjaan</option>
+                      {OCCUPATIONS.map(occ => (
+                        <option key={occ} value={occ}>{occ}</option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-2">Bangsa</label>
@@ -949,12 +983,16 @@ const PatientMaster = ({
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-2">Status</label>
-                    <input 
-                      type="text"
+                    <select 
                       className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       value={formData.maritalStatus}
                       onChange={e => setFormData({...formData, maritalStatus: e.target.value})}
-                    />
+                    >
+                      <option value="">Pilih Status</option>
+                      {MARITAL_STATUSES.map(status => (
+                        <option key={status} value={status}>{status}</option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-2">No. HP</label>
@@ -992,12 +1030,16 @@ const PatientMaster = ({
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-2">Suku/Adat</label>
-                    <input 
-                      type="text"
+                    <select 
                       className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       value={formData.tribe}
                       onChange={e => setFormData({...formData, tribe: e.target.value})}
-                    />
+                    >
+                      <option value="">Pilih Suku</option>
+                      {TRIBES.map(tribe => (
+                        <option key={tribe} value={tribe}>{tribe}</option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-2">Sumber Rujukan</label>
