@@ -10,14 +10,14 @@ export const HUMAN_NEEDS = [
 ];
 
 export const TREATMENTS_2023 = [
-  { id: '1', category: 'Pemeriksaan', name: 'Pemeriksaan & Konsultasi', price: 25000 },
-  { id: '2', category: 'Pencegahan', name: 'Scaling (Pembersihan Karang Gigi)', price: 150000 },
-  { id: '3', category: 'Pencegahan', name: 'Topical Application Fluor', price: 75000 },
-  { id: '4', category: 'Penambalan', name: 'Tumpatan Komposit (Kecil)', price: 200000 },
-  { id: '5', category: 'Penambalan', name: 'Tumpatan Komposit (Besar)', price: 350000 },
-  { id: '6', category: 'Pencabutan', name: 'Pencabutan Gigi Susu (Topikal)', price: 50000 },
-  { id: '7', category: 'Pencabutan', name: 'Pencabutan Gigi Susu (Injeksi)', price: 75000 },
-  { id: '8', category: 'Pencabutan', name: 'Pencabutan Gigi Dewasa (Ringan)', price: 150000 },
-  { id: '9', category: 'Pencabutan', name: 'Pencabutan Gigi Dewasa (Penyulit)', price: 250000 },
-  { id: '10', category: 'Bedah Mulut', name: 'Odontektomi (M3)', price: 1500000 },
+  { id: '1', category: 'Pemeriksaan', name: 'Pemeriksaan & Konsultasi', price: 15000 },
+  { id: '2', category: 'Pencegahan', name: 'Scaling (Pembersihan Karang Gigi)', price: 50000 },
+  { id: '3', category: 'Pencegahan', name: 'Topical Application Fluor', price: 25000 },
+  { id: '4', category: 'Penambalan', name: 'Tumpatan Komposit (Kecil)', price: 50000 },
+  { id: '5', category: 'Penambalan', name: 'Tumpatan Komposit (Besar)', price: 75000 },
+  { id: '6', category: 'Pencabutan', name: 'Pencabutan Gigi Susu (Topikal)', price: 20000 },
+  { id: '7', category: 'Pencabutan', name: 'Pencabutan Gigi Susu (Injeksi)', price: 30000 },
+  { id: '8', category: 'Pencabutan', name: 'Pencabutan Gigi Dewasa (Ringan)', price: 40000 },
+  { id: '9', category: 'Pencabutan', name: 'Pencabutan Gigi Dewasa (Penyulit)', price: 60000 },
+  { id: '10', category: 'Bedah Mulut', name: 'Odontektomi (M3)', price: 250000 },
 ];

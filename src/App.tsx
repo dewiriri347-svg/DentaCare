@@ -114,6 +114,38 @@ interface Patient {
   referralSource?: string;
 }
 
+interface MedicalRecordEntry {
+  id: string;
+  patientId: string;
+  date: string;
+  anamnesis: any;
+  clinical: {
+    ohis: any;
+    plaque: any;
+    plaqueControl?: any;
+    odontogram: any;
+    periodontal: any;
+    ekstraOral?: any;
+    intraOral?: any;
+  };
+  diagnosis: any;
+  treatment: any;
+  vitalSigns: {
+    tensi: string;
+    suhu: string;
+    hr: string;
+    rr: string;
+    tb: string;
+    bb: string;
+    bmi: string;
+    golonganDarah?: string;
+  };
+  evaluativeStatement?: string;
+  consent?: any;
+  doctor: string;
+  therapist: string;
+}
+
 interface Appointment {
   id: number;
   patient: string;
@@ -294,68 +326,104 @@ const Toast = ({ message, type, onClose }: { message: string, type: 'success' | 
   </motion.div>
 );
 
-const Reports = ({ onSave }: { onSave: () => void }) => (
-  <div className="space-y-8">
-    <div className="flex items-center justify-between">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-900">Pelaporan & Analitik</h2>
-        <p className="text-slate-500">Laporan performa klinik dan statistik kesehatan gigi</p>
-      </div>
-      <button 
-        onClick={onSave}
-        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
-      >
-        <Printer size={16} />
-        Cetak Laporan Bulanan
-      </button>
-    </div>
+const Reports = ({ 
+  onSave, 
+  patients, 
+  medicalRecords, 
+  invoices 
+}: { 
+  onSave: () => void, 
+  patients: Patient[], 
+  medicalRecords: MedicalRecordEntry[], 
+  invoices: Invoice[] 
+}) => {
+  // Calculate real stats
+  const totalRevenue = invoices.filter(inv => inv.status === 'paid').reduce((acc, curr) => acc + curr.amount, 0);
+  const totalVisits = medicalRecords.length;
+  const uniquePatientsCount = new Set(medicalRecords.map(r => r.patientId)).size;
+  
+  // Aggregate common diagnoses (from unmetNeeds)
+  const diagnoseCounts: Record<string, number> = {};
+  medicalRecords.forEach(record => {
+    if (record.diagnosis?.unmetNeeds) {
+      const needs = record.diagnosis.unmetNeeds.split(';');
+      needs.forEach((need: string) => {
+        const title = need.split(':')[0]?.trim();
+        if (title) {
+          diagnoseCounts[title] = (diagnoseCounts[title] || 0) + 1;
+        }
+      });
+    }
+  });
 
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      {[
-        { label: 'Kunjungan Baru', value: '124', trend: '+15%', color: 'bg-blue-500' },
-        { label: 'Total Pendapatan', value: 'Rp 45.2M', trend: '+8%', color: 'bg-emerald-500' },
-        { label: 'Pasien Selesai Perawatan', value: '89', trend: '+22%', color: 'bg-purple-500' },
-      ].map((stat, i) => (
-        <div key={i} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">{stat.label}</p>
-          <div className="flex items-end justify-between">
-            <p className="text-2xl font-black text-slate-900">{stat.value}</p>
-            <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">{stat.trend}</span>
-          </div>
-          <div className="mt-4 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
-            <div className={cn("h-full rounded-full", stat.color)} style={{ width: '70%' }} />
-          </div>
+  const chartData = Object.entries(diagnoseCounts)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+
+  return (
+    <div className="space-y-8">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">Pelaporan & Analitik</h2>
+          <p className="text-slate-500">Laporan performa klinik dan statistik kesehatan gigi berdasarkan data riil</p>
         </div>
-      ))}
-    </div>
+        <button 
+          onClick={onSave}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
+        >
+          <Printer size={16} />
+          Cetak Laporan Bulanan
+        </button>
+      </div>
 
-    <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
-      <h3 className="text-lg font-bold text-slate-900 mb-8">Distribusi Diagnosa Terbanyak</h3>
-      <div className="h-[400px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={[
-            { name: 'Karies Gigi', count: 45 },
-            { name: 'Gingivitis', count: 32 },
-            { name: 'Periodontitis', count: 18 },
-            { name: 'Maloklusi', count: 25 },
-            { name: 'Pulpitis', count: 12 },
-          ]}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
-            <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
-            <Tooltip 
-              cursor={{ fill: '#f8fafc' }}
-              contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }}
-            />
-            <Bar dataKey="count" fill="#3b82f6" radius={[8, 8, 0, 0]} barSize={40} />
-          </BarChart>
-        </ResponsiveContainer>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {[
+          { label: 'Total Pasien Unik', value: uniquePatientsCount.toString(), trend: 'Berdasarkan Data', color: 'bg-blue-500' },
+          { label: 'Total Pendapatan', value: `Rp ${(totalRevenue / 1000000).toFixed(1)}M`, trend: 'Lunas', color: 'bg-emerald-500' },
+          { label: 'Total Kunjungan', value: totalVisits.toString(), trend: 'Database', color: 'bg-purple-500' },
+        ].map((stat, i) => (
+          <div key={i} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">{stat.label}</p>
+            <div className="flex items-end justify-between">
+              <p className="text-2xl font-black text-slate-900">{stat.value}</p>
+              <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">{stat.trend}</span>
+            </div>
+            <div className="mt-4 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+              <div className={cn("h-full rounded-full", stat.color)} style={{ width: '100%' }} />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+        <h3 className="text-lg font-bold text-slate-900 mb-8">Distribusi Diagnosis Terbanyak (Real-time)</h3>
+        <div className="h-[400px]">
+          {chartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
+                <Tooltip 
+                  cursor={{ fill: '#f8fafc' }}
+                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }}
+                />
+                <Bar dataKey="count" fill="#3b82f6" radius={[8, 8, 0, 0]} barSize={40} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-full flex items-center justify-center text-slate-400 font-medium">
+              Belum ada data diagnosis yang tersimpan untuk dianalisis.
+            </div>
+          )}
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
-const Security = ({ onSave }: { onSave: () => void }) => (
+const Security = ({ config, setConfig, onSave }: { config: any, setConfig: (c: any) => void, onSave: () => void }) => (
   <div className="space-y-8">
     <div className="flex items-center justify-between">
       <div>
@@ -381,26 +449,35 @@ const Security = ({ onSave }: { onSave: () => void }) => (
             <h3 className="font-bold text-slate-900">Status Enkripsi</h3>
             <p className="text-xs text-slate-500">Data terenkripsi dengan AES-256</p>
           </div>
-          <div className="ml-auto px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-black uppercase tracking-widest">Aktif</div>
+          <div className="ml-auto px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-black uppercase tracking-widest">{config.encryption ? 'Aktif' : 'Nonaktif'}</div>
         </div>
         
         <div className="space-y-4">
           <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
             <span className="text-sm font-bold text-slate-700">Enkripsi Database</span>
-            <div className="w-10 h-5 bg-blue-600 rounded-full relative cursor-pointer">
-              <div className="absolute right-1 top-1 w-3 h-3 bg-white rounded-full shadow-sm" />
+            <div 
+              onClick={() => setConfig({...config, encryption: !config.encryption})}
+              className={cn("w-10 h-5 rounded-full relative cursor-pointer transition-colors", config.encryption ? "bg-blue-600" : "bg-slate-200")}
+            >
+              <div className={cn("absolute top-1 w-3 h-3 bg-white rounded-full shadow-sm transition-all", config.encryption ? "right-1" : "left-1")} />
             </div>
           </div>
           <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
             <span className="text-sm font-bold text-slate-700">Audit Log Otomatis</span>
-            <div className="w-10 h-5 bg-blue-600 rounded-full relative cursor-pointer">
-              <div className="absolute right-1 top-1 w-3 h-3 bg-white rounded-full shadow-sm" />
+            <div 
+              onClick={() => setConfig({...config, auditLog: !config.auditLog})}
+              className={cn("w-10 h-5 rounded-full relative cursor-pointer transition-colors", config.auditLog ? "bg-blue-600" : "bg-slate-200")}
+            >
+              <div className={cn("absolute top-1 w-3 h-3 bg-white rounded-full shadow-sm transition-all", config.auditLog ? "right-1" : "left-1")} />
             </div>
           </div>
           <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
             <span className="text-sm font-bold text-slate-700">Two-Factor Auth</span>
-            <div className="w-10 h-5 bg-slate-200 rounded-full relative cursor-pointer">
-              <div className="absolute left-1 top-1 w-3 h-3 bg-white rounded-full shadow-sm" />
+            <div 
+              onClick={() => setConfig({...config, twoFactor: !config.twoFactor})}
+              className={cn("w-10 h-5 rounded-full relative cursor-pointer transition-colors", config.twoFactor ? "bg-blue-600" : "bg-slate-200")}
+            >
+              <div className={cn("absolute top-1 w-3 h-3 bg-white rounded-full shadow-sm transition-all", config.twoFactor ? "right-1" : "left-1")} />
             </div>
           </div>
         </div>
@@ -435,7 +512,7 @@ const Security = ({ onSave }: { onSave: () => void }) => (
   </div>
 );
 
-const Settings = ({ onSave }: { onSave: () => void }) => (
+const Settings = ({ config, setConfig, onSave }: { config: any, setConfig: (c: any) => void, onSave: () => void }) => (
   <div className="space-y-8">
     <div className="flex items-center justify-between">
       <div>
@@ -457,15 +534,29 @@ const Settings = ({ onSave }: { onSave: () => void }) => (
         
         <div>
           <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nama Klinik</label>
-          <input type="text" defaultValue="DentaCare RME" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+          <input 
+            type="text" 
+            value={config.clinicName} 
+            onChange={e => setConfig({...config, clinicName: e.target.value})}
+            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none" 
+          />
         </div>
         <div>
           <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Alamat</label>
-          <textarea defaultValue="Jl. Kesehatan No. 123, Jakarta Selatan" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[80px]" />
+          <textarea 
+            value={config.address}
+            onChange={e => setConfig({...config, address: e.target.value})}
+            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[80px]" 
+          />
         </div>
         <div>
           <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Telepon</label>
-          <input type="text" defaultValue="(021) 1234-5678" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+          <input 
+            type="text" 
+            value={config.phone}
+            onChange={e => setConfig({...config, phone: e.target.value})}
+            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none" 
+          />
         </div>
       </div>
 
@@ -478,8 +569,11 @@ const Settings = ({ onSave }: { onSave: () => void }) => (
               <span className="text-sm font-bold text-slate-700 block">Notifikasi Email</span>
               <span className="text-[10px] text-slate-500">Kirim pengingat jadwal ke pasien</span>
             </div>
-            <div className="w-10 h-5 bg-blue-600 rounded-full relative cursor-pointer">
-              <div className="absolute right-1 top-1 w-3 h-3 bg-white rounded-full shadow-sm" />
+            <div 
+              onClick={() => setConfig({...config, notifications: !config.notifications})}
+              className={cn("w-10 h-5 rounded-full relative cursor-pointer transition-colors", config.notifications ? "bg-blue-600" : "bg-slate-200")}
+            >
+              <div className={cn("absolute top-1 w-3 h-3 bg-white rounded-full shadow-sm transition-all", config.notifications ? "right-1" : "left-1")} />
             </div>
           </div>
           <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
@@ -487,8 +581,11 @@ const Settings = ({ onSave }: { onSave: () => void }) => (
               <span className="text-sm font-bold text-slate-700 block">Backup Otomatis</span>
               <span className="text-[10px] text-slate-500">Backup data setiap hari jam 00:00</span>
             </div>
-            <div className="w-10 h-5 bg-blue-600 rounded-full relative cursor-pointer">
-              <div className="absolute right-1 top-1 w-3 h-3 bg-white rounded-full shadow-sm" />
+            <div 
+              onClick={() => setConfig({...config, autoBackup: !config.autoBackup})}
+              className={cn("w-10 h-5 rounded-full relative cursor-pointer transition-colors", config.autoBackup ? "bg-blue-600" : "bg-slate-200")}
+            >
+              <div className={cn("absolute top-1 w-3 h-3 bg-white rounded-full shadow-sm transition-all", config.autoBackup ? "right-1" : "left-1")} />
             </div>
           </div>
           <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
@@ -496,8 +593,11 @@ const Settings = ({ onSave }: { onSave: () => void }) => (
               <span className="text-sm font-bold text-slate-700 block">Mode Gelap</span>
               <span className="text-[10px] text-slate-500">Tema tampilan aplikasi</span>
             </div>
-            <div className="w-10 h-5 bg-slate-300 rounded-full relative cursor-pointer">
-              <div className="absolute left-1 top-1 w-3 h-3 bg-white rounded-full shadow-sm" />
+            <div 
+              onClick={() => setConfig({...config, darkMode: !config.darkMode})}
+              className={cn("w-10 h-5 rounded-full relative cursor-pointer transition-colors", config.darkMode ? "bg-blue-600" : "bg-slate-200")}
+            >
+              <div className={cn("absolute top-1 w-3 h-3 bg-white rounded-full shadow-sm transition-all", config.darkMode ? "right-1" : "left-1")} />
             </div>
           </div>
         </div>
@@ -620,6 +720,7 @@ const PatientMaster = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
+  const [patientToDelete, setPatientToDelete] = useState<Patient | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     nik: '',
@@ -840,11 +941,7 @@ const PatientMaster = ({
                       <Edit size={16} />
                     </button>
                     <button 
-                      onClick={() => {
-                        if (window.confirm(`Hapus data pasien ${patient.name}?`)) {
-                          onDelete(patient.id);
-                        }
-                      }}
+                      onClick={() => setPatientToDelete(patient)}
                       className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                       title="Hapus Pasien"
                     >
@@ -1098,6 +1195,53 @@ const PatientMaster = ({
           </div>
         )}
       </AnimatePresence>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {patientToDelete && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6 space-y-6 overflow-hidden"
+            >
+              <div className="flex items-center gap-3 text-red-600">
+                <AlertCircle className="shrink-0" size={24} />
+                <h3 className="text-lg font-bold">Hapus Data Pasien</h3>
+              </div>
+              
+              <div className="text-sm text-slate-600 leading-relaxed">
+                Apakah Anda yakin ingin menghapus data pasien: <span className="font-bold text-slate-900 block mt-1 text-base">{patientToDelete.name}</span>
+                <span className="block mt-2 text-xs text-slate-500 bg-red-50 border border-red-100 p-3 rounded-xl block leading-relaxed">
+                  ⚠️ Peringatan: Seluruh data rekam medis, invoice, dan jadwal kunjungan yang terkait dengan pasien ini juga akan ikut terpengaruh. Tindakan ini bersifat permanen dan tidak dapat dibatalkan.
+                </span>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button 
+                  type="button"
+                  onClick={() => setPatientToDelete(null)}
+                  className="px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-colors text-slate-600"
+                >
+                  Batal
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    onDelete(patientToDelete.id);
+                    setPatientToDelete(null);
+                  }}
+                  className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold transition-colors shadow-lg shadow-red-200 flex items-center gap-2"
+                >
+                  <Trash2 size={16} />
+                  Ya, Hapus Pasien
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -1271,8 +1415,13 @@ const Billing = ({ invoices, setInvoices, onSave }: { invoices: Invoice[], setIn
 
   const handleSaveEdit = (e: React.FormEvent) => {
     e.preventDefault();
-    setInvoices(prev => prev.map(inv => inv.id === editingInvoice.id ? editingInvoice : inv));
+    if (!editingInvoice) return;
+    setInvoices(prev => {
+      const next = prev.map(inv => inv.id === editingInvoice.id ? editingInvoice : inv);
+      return next;
+    });
     setEditingInvoice(null);
+    onSave();
   };
 
   if (printingInvoice || printingAll) {
@@ -1688,7 +1837,12 @@ const MedicalRecord = ({
   onAddAppointment,
   onSave,
   user,
-  users
+  users,
+  medicalRecords,
+  onSaveRecord,
+  onDeleteRecord,
+  appointments,
+  invoices
 }: { 
   patients: Patient[], 
   selectedPatientId: string | null,
@@ -1696,43 +1850,289 @@ const MedicalRecord = ({
   onAddAppointment: (appointment: Omit<Appointment, 'id' | 'status'>) => void,
   onSave: () => void,
   user: User | null,
-  users: User[]
+  users: User[],
+  medicalRecords: MedicalRecordEntry[],
+  onSaveRecord: (entry: Omit<MedicalRecordEntry, 'id'>, existingId?: string) => void,
+  onDeleteRecord?: (id: string) => void,
+  appointments: Appointment[],
+  invoices: Invoice[]
 }) => {
+  const selectedPatient = patients.find(p => p.id === selectedPatientId);
   const [activeTab, setActiveTab] = useState<'anamnesis' | 'clinical' | 'diagnosis' | 'treatment' | 'consent' | 'resume' | 'riwayat' | 'evaluation'>('anamnesis');
   const [anamnesisSubTab, setAnamnesisSubTab] = useState<'medical' | 'social' | 'dental' | 'vital' | 'clinical_exam' | 'pharmacological'>('medical');
   const [clinicalSubTab, setClinicalSubTab] = useState<'ohis' | 'plaque' | 'odontogram' | 'periodontal'>('ohis');
   const [toothData, setToothData] = useState<Record<number, ToothSurfaceData>>({});
   const [toothNotes, setToothNotes] = useState<Record<number, string>>({});
   const [searchTerm, setSearchTerm] = useState('');
+  const [recordToDelete, setRecordToDelete] = useState<MedicalRecordEntry | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<string>('');
   const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
   const [isPreviousVisitModalOpen, setIsPreviousVisitModalOpen] = useState(false);
+  const [selectedVisitIndex, setSelectedVisitIndex] = useState<number | null>(null);
+  const [isNextVisitViewOpen, setIsNextVisitViewOpen] = useState(false);
+  const [visitDate, setVisitDate] = useState(new Date().toISOString().split('T')[0]);
   const [showPrimaryTeeth, setShowPrimaryTeeth] = useState(true);
   const [showDiagnosisGuidelines, setShowDiagnosisGuidelines] = useState(false);
   const [isPatientVerified, setIsPatientVerified] = useState(user?.role !== 'Pasien');
   const [showVerification, setShowVerification] = useState(user?.role === 'Pasien' && !isPatientVerified);
   
-  // Visit History Data
-  const [history, setHistory] = useState<any[]>([
-    { 
-      date: '2026-03-15', 
-      diagnosis: {
-        unmetNeeds: 'Karies Dentin (K02.1)',
-        cause: 'Oral hygiene buruk',
-        signsSymptoms: 'Lubang pada gigi 16',
-        clientGoals: 'Penambalan gigi',
-        interventions: 'Tumpatan komposit',
-        evaluativeStatement: 'Pasien kooperatif',
-        nextTreatmentRecommendation: 'Kontrol 6 bulan lagi',
-        categories: {}
+  // Clinical Exam State
+  const [clinicalExam, setClinicalExam] = useState({
+    wajah: { simetris: true, detail: '' },
+    kelenjarLymphe: { teraba: false, detail: '' },
+    mukosaPipi: { normal: true, detail: '' },
+    mukosaBibir: { normal: true, detail: '' },
+    lidah: { normal: true, detail: '' },
+    dasarMulut: { normal: true, detail: '' },
+    langitLangit: { normal: true, detail: '' },
+    gingiva: { normal: true, detail: '' },
+    frenulum: { normal: true, detail: '' },
+    tonsil: { normal: true, detail: '' },
+    lainLain: '',
+    ohis: { di: '', ci: '', total: '' },
+    plaqueIndex: ''
+  });
+
+  const [treatments, setTreatments] = useState<string[]>([]);
+  
+  // Filter history for current patient
+  const history = medicalRecords
+    .filter(r => r.patientId === selectedPatientId)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  // Filter appointments to find upcoming ones for this patient
+  const upcomingAppointments = appointments
+    .filter(a => a.patient === selectedPatient?.name && new Date(a.date) >= new Date(new Date().setHours(0,0,0,0)))
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  
+  const nextVisit = upcomingAppointments[0];
+
+  const currentPatientInvoices = invoices.filter(inv => inv.patient === selectedPatient?.name);
+  const unpaidTotal = currentPatientInvoices
+    .filter(inv => inv.status === 'unpaid')
+    .reduce((sum, inv) => sum + inv.amount, 0);
+
+  const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
+
+  const handlePatientSave = () => {
+    if (!selectedPatientId) return;
+    
+    // Calculate values to be stored
+    const avgDI = clinical.ohis.debrisIndex.reduce((a, b) => a + b, 0) / 6;
+    const avgCI = clinical.ohis.calculusIndex.reduce((a, b) => a + b, 0) / 6;
+    const ohisTotal = (avgDI + avgCI).toFixed(2);
+
+    const plaqueEntries = Object.values(clinical.plaqueControl.data);
+    const plaqueCount = plaqueEntries.reduce((acc, curr) => acc + (curr.buccal ? 1 : 0) + (curr.lingual ? 1 : 0) + (curr.mesial ? 1 : 0) + (curr.distal ? 1 : 0), 0);
+    const totalCount = plaqueEntries.length * 4;
+    const plaquePercent = totalCount > 0 ? ((plaqueCount / totalCount) * 100).toFixed(1) : "0.0";
+
+    const ohisObject = {
+      ...clinical.ohis,
+      total: ohisTotal,
+      di: avgDI.toFixed(2),
+      ci: avgCI.toFixed(2)
+    };
+
+    const plaqueObject = {
+      ...clinical.plaqueControl,
+      totalScore: plaquePercent,
+      score: parseFloat(plaquePercent)
+    };
+
+    onSaveRecord({
+      patientId: selectedPatientId,
+      date: visitDate,
+      anamnesis,
+      clinical: {
+        ekstraOral: clinical.ekstraOral,
+        intraOral: clinical.intraOral,
+        ohis: ohisObject,
+        plaque: plaqueObject,
+        plaqueControl: plaqueObject,
+        periodontal: clinical.periodontal,
+        odontogram: { toothData, toothNotes }
       },
-      treatment: ['4'], // Tumpatan Komposit (Kecil)
-      vitalSigns: { tensi: '120/80', suhu: '36.5', hr: '80', rr: '20', tb: '170', bb: '70' },
-      doctor: 'Drg. Rizky', 
-      therapist: 'Dewi Sri Rahmawati' 
-    },
-  ]);
+      diagnosis: dentalHygieneDiagnosis,
+      treatment: selectedTreatments,
+      vitalSigns: anamnesis.vitalSigns,
+      evaluativeStatement: dentalHygieneDiagnosis.evaluativeStatement,
+      consent: {
+        ...consent,
+        signatures: {
+          dentist: sigDentist.current?.isEmpty() ? null : sigDentist.current?.toDataURL(),
+          therapist: sigTherapist.current?.isEmpty() ? null : sigTherapist.current?.toDataURL(),
+          patient: sigPatient.current?.isEmpty() ? null : sigPatient.current?.toDataURL(),
+          guardian: sigGuardian.current?.isEmpty() ? null : sigGuardian.current?.toDataURL(),
+        }
+      },
+      doctor: user?.name || 'Unknown',
+      therapist: user?.name || 'Unknown'
+    }, editingRecordId || undefined);
+    
+    onSave();
+    setEditingRecordId(null);
+  };
+
+  const loadRecordForEditing = (record: MedicalRecordEntry) => {
+    if (confirm('Muat data dari kunjungan ini untuk diedit? Perubahan yang belum disimpan saat ini akan tertimpa.')) {
+      setEditingRecordId(record.id);
+      setVisitDate(record.date);
+      
+      const mergedAnamnesis = {
+        medicalHistory: {
+          sehat: true,
+          penyakitSerius: false,
+          detailPenyakitSerius: '',
+          kelainanDarah: false,
+          detailKelainanDarah: '',
+          alergi: { hasAlergi: false, makanan: '', obatObatan: '', obatBius: '', cuaca: '', lainLain: '' },
+          hasLainLain: false,
+          detailLainLain: '',
+          ...(record.anamnesis?.medicalHistory || {})
+        },
+        socialHistory: record.anamnesis?.socialHistory || '',
+        dentalHistory: {
+          alasanKunjungan: '',
+          inginDiketahui: [],
+          inginDiketahuiLainnya: '',
+          rontgen2Tahun: false,
+          rontgenType: '',
+          komplikasiPerawatan: false,
+          detailKomplikasi: '',
+          pendapatKunjunganLalu: '',
+          pendapatKesehatanUmum: '',
+          gejala: [],
+          gejalaLainnya: '',
+          gemeretakGigi: false,
+          biteGuard: false,
+          cemasAromaNafas: false,
+          masalahAromaNafas: [],
+          cederaGigi: false,
+          detailCedera: '',
+          pengalamanLalu: [],
+          pengalamanLaluLainnya: '',
+          homeCareTools: [],
+          homeCareToolsLainnya: '',
+          toothpasteBenefits: [],
+          toothpasteBenefitsLainnya: '',
+          cleaningTimeBrushing: '',
+          cleaningTimeFlossing: '',
+          frequencyBrushing: '',
+          frequencyFlossing: '',
+          brushingTimes: [],
+          brushingTimesLainnya: '',
+          difficultyScheduling: null,
+          difficultyCleaningCondition: null,
+          difficultyCleaningOptions: [],
+          difficultyCleaningLainnya: '',
+          monthlyOralCancerCheck: null,
+          habits: [],
+          habitsLainnya: '',
+          ...(record.anamnesis?.dentalHistory || {})
+        },
+        vitalSigns: {
+          tensi: '', suhu: '', tb: '', bb: '', hr: '', rr: '', bmi: '',
+          ...(record.anamnesis?.vitalSigns || {})
+        },
+        cemilan: record.anamnesis?.cemilan || [
+          { name: 'Permen Mint', selected: false, frequency: '' },
+          { name: 'Minuman Manis', selected: false, frequency: '' },
+          { name: 'Buah Kering', selected: false, frequency: '' },
+          { name: 'Minuman Kaleng/Botol', selected: false, frequency: '' },
+          { name: 'Permen Karet', selected: false, frequency: '' },
+          { name: 'Kerupuk', selected: false, frequency: '' },
+          { name: 'Obat Syrup', selected: false, frequency: '' },
+          { name: 'Keripik', selected: false, frequency: '' },
+          { name: 'Kue Kering', selected: false, frequency: '' },
+          { name: 'Lainnya', selected: false, frequency: '', detail: '' }
+        ],
+        keyakinan: {
+          kemungkinanBerlubang: '', pentingnyaPencegahan: '', percayaBisaMenjaga: null, percayaKesehatanGigi: '',
+          ...(record.anamnesis?.keyakinan || {})
+        },
+        pharmacological: {
+          konsumsiObat: null, detailObat: '', untukApa: '', efekSamping: '', pengaruhPositif: '', masalahDosis: null, detailDosis: '', konsumsiTeratur: null,
+          ...(record.anamnesis?.pharmacological || {})
+        }
+      };
+      setAnamnesis(mergedAnamnesis);
+
+      if (record.clinical) {
+        setClinical({
+          ekstraOral: record.clinical.ekstraOral || { skinFace: 'Normal', skinNeck: 'Normal', vermilionBorders: 'Normal', parotidGlands: 'Normal', lymphNodes: { anteriorCervical: 'Normal', posteriorCervical: 'Normal', submental: 'Normal', submandibular: 'Normal', supraclavicular: 'Normal' }, tmj: 'Normal', wajah: 'Simetris', notes: '' },
+          intraOral: record.clinical.intraOral || { 
+            labialMucosa: 'Normal', labialVestibules: 'Normal', anteriorGingivae: 'Normal', buccalVestibules: 'Normal', buccalGingivae: 'Normal', 
+            tongueDorsal: 'Normal', tongueVentral: 'Normal', tongueLateral: 'Normal', lingualTonsils: 'Normal', floorOfMouth: 'Normal', 
+            lingualGingivae: 'Normal', tonsillarPillars: 'Normal', pharyngealWall: 'Normal', softPalate: 'Normal', uvula: 'Normal', 
+            hardPalate: 'Normal', palatalGingivae: 'Normal', submandibularGlands: 'Normal', notes: '' 
+          },
+          ohis: record.clinical.ohis || { gigiIndex: [16, 11, 26, 36, 31, 46], debrisIndex: [0, 0, 0, 0, 0, 0], calculusIndex: [0, 0, 0, 0, 0, 0] },
+          plaqueControl: record.clinical.plaqueControl || record.clinical.plaque || { data: {}, score: 0, kategori: '' },
+          periodontal: record.clinical.periodontal || { data: {}, jumlahSkor: 0 }
+        });
+        
+        setClinicalExam({
+          wajah: { simetris: true, detail: '' },
+          kelenjarLymphe: { teraba: false, detail: '' },
+          mukosaPipi: { normal: true, detail: '' },
+          mukosaBibir: { normal: true, detail: '' },
+          lidah: { normal: true, detail: '' },
+          dasarMulut: { normal: true, detail: '' },
+          langitLangit: { normal: true, detail: '' },
+          gingiva: { normal: true, detail: '' },
+          frenulum: { normal: true, detail: '' },
+          tonsil: { normal: true, detail: '' },
+          lainLain: '',
+          ohis: record.clinical.ohis ? { di: record.clinical.ohis.di || '', ci: record.clinical.ohis.ci || '', total: record.clinical.ohis.total || '' } : { di: '', ci: '', total: '' },
+          plaqueIndex: record.clinical.plaque ? (record.clinical.plaque.totalScore || '') : ''
+        });
+      }
+
+      setToothData(record.clinical?.odontogram?.toothData || {});
+      setToothNotes(record.clinical?.odontogram?.toothNotes || {});
+      
+      setDentalHygieneDiagnosis(record.diagnosis || {
+        categories: { perlindunganResiko: '', bebasKetakutan: '', kesanWajahSehat: '', keutuhanMukosa: '', kondisiBiologis: '', konseptualisasi: '', bebasNyeri: '', tanggungJawab: '' },
+        unmetNeeds: '',
+        cause: '',
+        signsSymptoms: '',
+        clientGoals: '',
+        interventions: '',
+        evaluativeStatement: '',
+        nextTreatmentRecommendation: ''
+      });
+
+      setTreatments(record.treatment || []);
+      setSelectedTreatments(record.treatment || []);
+
+      if (record.consent) {
+        setConsent({
+          patientName: record.consent.patientName || '',
+          relationship: record.consent.relationship || '',
+          dentistName: record.consent.dentistName || 'drg. Bambang Adicahyono',
+          therapistName: record.consent.therapistName || '',
+          guardianName: record.consent.guardianName || '',
+          date: record.consent.date || record.date
+        });
+        setLoadedSignatures(record.consent.signatures || null);
+      } else {
+        setConsent({
+          patientName: selectedPatient?.name || '',
+          relationship: '',
+          dentistName: user?.role === 'Dokter Gigi' ? user.name : 'drg. Bambang Adicahyono',
+          therapistName: user?.role === 'Terapis Gigi dan Mulut' ? user.name : '',
+          guardianName: '',
+          date: record.date || new Date().toISOString().split('T')[0]
+        });
+        setLoadedSignatures(null);
+      }
+
+      setActiveTab('anamnesis');
+      alert('Data kunjungan berhasil dimuat. Silakan lakukan perubahan dan simpan kembali.');
+    }
+  };
 
   const [appointmentForm, setAppointmentForm] = useState({
     date: '',
@@ -1818,7 +2218,8 @@ const MedicalRecord = ({
       tb: '',
       bb: '',
       hr: '',
-      rr: ''
+      rr: '',
+      bmi: ''
     },
     cemilan: [
       { name: 'Permen Mint', selected: false, frequency: '' },
@@ -1927,6 +2328,28 @@ const MedicalRecord = ({
     evaluativeStatement: '',
     nextTreatmentRecommendation: ''
   });
+
+  // Automatically update unmetNeeds based on 8 human needs categories
+  useEffect(() => {
+    const unmetFromCategories = Object.entries(dentalHygieneDiagnosis.categories)
+      .filter(([_, value]) => value.trim() !== '')
+      .map(([key, value]) => {
+        const title = (HUMAN_NEEDS_GUIDELINES as any)[key]?.title || key;
+        return `${title}: ${value}`;
+      })
+      .join('; ');
+
+    if (unmetFromCategories) {
+      setDentalHygieneDiagnosis(prev => {
+        // Only update if it's actually different to avoid infinite loops if it were wider
+        if (prev.unmetNeeds === unmetFromCategories) return prev;
+        return {
+          ...prev,
+          unmetNeeds: unmetFromCategories
+        };
+      });
+    }
+  }, [dentalHygieneDiagnosis.categories]);
   
   // Treatment State
   const [selectedTreatments, setSelectedTreatments] = useState<string[]>([]);
@@ -1935,7 +2358,7 @@ const MedicalRecord = ({
   const [consent, setConsent] = useState({
     patientName: '',
     relationship: '',
-    dentistName: '',
+    dentistName: 'drg. Bambang Adicahyono',
     therapistName: '',
     guardianName: '',
     date: new Date().toISOString().split('T')[0]
@@ -1947,7 +2370,27 @@ const MedicalRecord = ({
   const sigPatient = useRef<SignatureCanvas>(null);
   const sigGuardian = useRef<SignatureCanvas>(null);
 
-  const selectedPatient = patients.find(p => p.id === selectedPatientId);
+  const [loadedSignatures, setLoadedSignatures] = useState<{ dentist?: string; therapist?: string; patient?: string; guardian?: string } | null>(null);
+
+  useEffect(() => {
+    if (activeTab === 'consent' && loadedSignatures) {
+      const timer = setTimeout(() => {
+        if (loadedSignatures.dentist && sigDentist.current) {
+          try { sigDentist.current.fromDataURL(loadedSignatures.dentist); } catch (e) { console.error(e); }
+        }
+        if (loadedSignatures.therapist && sigTherapist.current) {
+          try { sigTherapist.current.fromDataURL(loadedSignatures.therapist); } catch (e) { console.error(e); }
+        }
+        if (loadedSignatures.patient && sigPatient.current) {
+          try { sigPatient.current.fromDataURL(loadedSignatures.patient); } catch (e) { console.error(e); }
+        }
+        if (loadedSignatures.guardian && sigGuardian.current) {
+          try { sigGuardian.current.fromDataURL(loadedSignatures.guardian); } catch (e) { console.error(e); }
+        }
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [activeTab, loadedSignatures]);
 
   if (user?.role === 'Pasien' && !isPatientVerified) {
     return (
@@ -1984,13 +2427,25 @@ const MedicalRecord = ({
 
   useEffect(() => {
     if (selectedPatient) {
-      setConsent(prev => ({
-        ...prev,
-        patientName: selectedPatient.name,
-        operatorName: selectedPatient.examiningDentist || selectedPatient.examiningTherapist || ''
-      }));
+      setConsent(prev => {
+        const updates: any = {
+          patientName: selectedPatient.name,
+        };
+        
+        // Auto-select based on login
+        if (user?.role === 'Dokter Gigi') {
+          updates.dentistName = user.name;
+        } else if (user?.role === 'Terapis Gigi dan Mulut') {
+          updates.therapistName = user.name;
+        }
+
+        // Fallback or additional operator
+        updates.operatorName = selectedPatient.examiningDentist || selectedPatient.examiningTherapist || '';
+        
+        return { ...prev, ...updates };
+      });
     }
-  }, [selectedPatient]);
+  }, [selectedPatient, user]);
 
   const calculateOHIS = () => {
     const avgDI = clinical.ohis.debrisIndex.reduce((a, b) => a + b, 0) / 6;
@@ -2086,28 +2541,94 @@ const MedicalRecord = ({
   };
 
   const handleNewVisit = () => {
-    if (confirm('Mulai kunjungan baru? Data saat ini akan disimpan ke riwayat.')) {
-      const newVisit = {
-        date: new Date().toISOString().split('T')[0],
-        diagnosis: { ...dentalHygieneDiagnosis },
-        treatment: [...selectedTreatments],
-        vitalSigns: { ...anamnesis.vitalSigns },
-        doctor: selectedPatient?.examiningDentist || 'Drg. Rizky',
-        therapist: selectedPatient?.examiningTherapist || '-'
-      };
-      setHistory([newVisit, ...history]);
-      
-      // Reset form for new visit
-      setAnamnesis(prev => ({
-        ...prev,
-        vitalSigns: { tensi: '', suhu: '', hr: '', rr: '', tb: '', bb: '' }
-      }));
-      setSelectedTreatments([]);
-      
-      // Navigate to Vital Signs
-      setActiveTab('anamnesis');
-      setAnamnesisSubTab('vital');
+    // Check if there is data to save
+    const hasData = anamnesis.dentalHistory.alasanKunjungan || 
+                    anamnesis.vitalSigns.tensi || 
+                    selectedTreatments.length > 0 || 
+                    dentalHygieneDiagnosis.unmetNeeds;
+    
+    if (hasData) {
+      if (confirm('Simpan data saat ini ke riwayat sebelum memulai kunjungan baru?')) {
+        handlePatientSave();
+      } else if (!confirm('Mulai kunjungan baru tanpa menyimpan data saat ini?')) {
+        return;
+      }
     }
+    
+    // Get latest visit from history
+    const latestVisit = history.length > 0 ? history[0] : null;
+
+    // Reset form for new visit, copy medicalHistory, socialHistory, and dentalHistory from latestVisit if available
+    setAnamnesis(prev => ({
+      ...prev,
+      medicalHistory: latestVisit ? (latestVisit.anamnesis?.medicalHistory || prev.medicalHistory) : prev.medicalHistory,
+      socialHistory: latestVisit ? (latestVisit.anamnesis?.socialHistory || prev.socialHistory) : prev.socialHistory,
+      dentalHistory: latestVisit ? (latestVisit.anamnesis?.dentalHistory || prev.dentalHistory) : prev.dentalHistory,
+      vitalSigns: { tensi: '', suhu: '', hr: '', rr: '', tb: '', bb: '', bmi: '', golonganDarah: '' }
+    }));
+    
+    setEditingRecordId(null);
+    setLoadedSignatures(null);
+    
+    try { sigDentist.current?.clear(); } catch(e) {}
+    try { sigTherapist.current?.clear(); } catch(e) {}
+    try { sigPatient.current?.clear(); } catch(e) {}
+    try { sigGuardian.current?.clear(); } catch(e) {}
+
+    setClinical({
+      ekstraOral: { skinFace: 'Normal', skinNeck: 'Normal', vermilionBorders: 'Normal', parotidGlands: 'Normal', lymphNodes: { anteriorCervical: 'Normal', posteriorCervical: 'Normal', submental: 'Normal', submandibular: 'Normal', supraclavicular: 'Normal' }, tmj: 'Normal', wajah: 'Simetris', notes: '' },
+      intraOral: { 
+        labialMucosa: 'Normal', labialVestibules: 'Normal', anteriorGingivae: 'Normal', buccalVestibules: 'Normal', buccalGingivae: 'Normal', 
+        tongueDorsal: 'Normal', tongueVentral: 'Normal', tongueLateral: 'Normal', lingualTonsils: 'Normal', floorOfMouth: 'Normal', 
+        lingualGingivae: 'Normal', tonsillarPillars: 'Normal', pharyngealWall: 'Normal', softPalate: 'Normal', uvula: 'Normal', 
+        hardPalate: 'Normal', palatalGingivae: 'Normal', submandibularGlands: 'Normal', notes: '' 
+      },
+      ohis: { gigiIndex: [16, 11, 26, 36, 31, 46], debrisIndex: [0, 0, 0, 0, 0, 0], calculusIndex: [0, 0, 0, 0, 0, 0] },
+      plaqueControl: { data: {}, score: 0, kategori: '' },
+      periodontal: { data: {}, jumlahSkor: 0 }
+    });
+
+    setTreatments([]);
+    setSelectedTreatments([]);
+    setClinicalExam({
+      wajah: { simetris: true, detail: '' },
+      kelenjarLymphe: { teraba: false, detail: '' },
+      mukosaPipi: { normal: true, detail: '' },
+      mukosaBibir: { normal: true, detail: '' },
+      lidah: { normal: true, detail: '' },
+      dasarMulut: { normal: true, detail: '' },
+      langitLangit: { normal: true, detail: '' },
+      gingiva: { normal: true, detail: '' },
+      frenulum: { normal: true, detail: '' },
+      tonsil: { normal: true, detail: '' },
+      lainLain: '',
+      ohis: { di: '', ci: '', total: '' },
+      plaqueIndex: ''
+    });
+    setDentalHygieneDiagnosis({
+      categories: {
+        perlindunganResiko: '',
+        bebasKetakutan: '',
+        kesanWajahSehat: '',
+        keutuhanMukosa: '',
+        kondisiBiologis: '',
+        konseptualisasi: '',
+        bebasNyeri: '',
+        tanggungJawab: ''
+      },
+      unmetNeeds: '',
+      cause: '',
+      signsSymptoms: '',
+      clientGoals: '',
+      interventions: '',
+      evaluativeStatement: '',
+      nextTreatmentRecommendation: ''
+    });
+    setToothData({});
+    setToothNotes({});
+    setVisitDate(new Date().toISOString().split('T')[0]);
+    setActiveTab('anamnesis');
+    setAnamnesisSubTab('medical');
   };
 
   const handlePrint = () => {
@@ -2118,8 +2639,13 @@ const MedicalRecord = ({
     if (!selectedPatient) return;
     const text = `Resume Pemeriksaan Dental - ${selectedPatient.name}
     No RM: ${selectedPatient.mrNumber}
-    Keluhan: ${anamnesis.dentalHistory.alasanKunjungan}
+    Keluhan: ${anamnesis.dentalHistory.alasanKunjungan || '-'}
     OHI-S: ${calculateOHIS()}
+    Diagnosis Askesgilut: ${dentalHygieneDiagnosis.unmetNeeds || '-'}
+    Penyebab: ${dentalHygieneDiagnosis.cause || '-'}
+    Tanda & Gejala: ${dentalHygieneDiagnosis.signsSymptoms || '-'}
+    Intervensi: ${dentalHygieneDiagnosis.interventions || '-'}
+    Rekomendasi: ${dentalHygieneDiagnosis.nextTreatmentRecommendation || '-'}
     Tindakan: ${selectedTreatments.map(id => TREATMENTS_2023.find(t => t.id === id)?.name).join(', ')}
     Total Biaya: Rp ${selectedPatient.insurance === 'BPJS' ? '0 (BPJS)' : selectedTreatments.reduce((sum, id) => sum + (TREATMENTS_2023.find(t => t.id === id)?.price || 0), 0).toLocaleString('id-ID')}`;
     
@@ -2178,15 +2704,37 @@ const MedicalRecord = ({
             {selectedPatient.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
           </div>
           <div>
-            <h2 className="text-xl font-bold text-slate-900">{selectedPatient.name}</h2>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-xl font-bold text-slate-900">{selectedPatient.name}</h2>
+              {editingRecordId && (
+                <span className="inline-flex items-center gap-1 bg-amber-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full animate-pulse uppercase tracking-wider">
+                  <Edit size={10} /> Mode Edit Kunjungan
+                </span>
+              )}
+            </div>
             <p className="text-sm text-slate-500">{selectedPatient.mrNumber} • {calculateAge(selectedPatient.birthDate)} Tahun • {selectedPatient.gender === 'L' ? 'Laki-laki' : 'Perempuan'}</p>
-            <div className="flex gap-4 mt-1">
+            <div className="flex gap-4 mt-1 items-center">
               <p className="text-[10px] font-bold text-blue-600 uppercase">Drg: {selectedPatient.examiningDentist || '-'}</p>
               <p className="text-[10px] font-bold text-emerald-600 uppercase">Terapis: {selectedPatient.examiningTherapist || '-'}</p>
+              {unpaidTotal > 0 && (
+                <div className="flex items-center gap-1 bg-red-50 text-red-600 px-2 py-0.5 rounded-full border border-red-100">
+                  <AlertCircle size={10} />
+                  <span className="text-[9px] font-black uppercase">Tagihan Tertunda: Rp {unpaidTotal.toLocaleString('id-ID')}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
-        <div className="flex gap-2 print:hidden">
+        <div className="flex items-center gap-2 print:hidden">
+          <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl mr-2">
+            <Calendar size={14} className="text-slate-400" />
+            <input 
+              type="date" 
+              value={visitDate}
+              onChange={(e) => setVisitDate(e.target.value)}
+              className="bg-transparent text-sm font-bold text-slate-700 outline-none"
+            />
+          </div>
           <button 
             onClick={() => onSelectPatient('')}
             className="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors"
@@ -2195,18 +2743,32 @@ const MedicalRecord = ({
             Kembali
           </button>
           <button 
-            onClick={() => setIsPreviousVisitModalOpen(true)}
+            onClick={() => {
+              if (history.length > 0) {
+                setSelectedVisitIndex(0);
+              }
+              setIsPreviousVisitModalOpen(true);
+            }}
             className="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors"
           >
             <History size={16} />
             Kunjungan Sebelumnya
           </button>
           <button 
-            onClick={() => setIsAppointmentModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-200"
+            onClick={() => {
+              if (nextVisit) {
+                setIsNextVisitViewOpen(true);
+              } else {
+                setIsAppointmentModalOpen(true);
+              }
+            }}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-colors shadow-lg",
+              nextVisit ? "bg-amber-500 text-white shadow-amber-200" : "bg-emerald-600 text-white shadow-emerald-200 hover:bg-emerald-700"
+            )}
           >
             <Calendar size={16} />
-            Kunjungan Selanjutnya
+            {nextVisit ? `Next: ${new Date(nextVisit.date).toLocaleDateString('id-ID', {day:'numeric', month:'short'})}` : 'Kunjungan Selanjutnya'}
           </button>
           <button 
             onClick={() => setActiveTab('riwayat')}
@@ -2225,12 +2787,28 @@ const MedicalRecord = ({
             <Printer size={16} />
             Cetak RME
           </button>
+          {editingRecordId && (
+            <button 
+              onClick={() => {
+                if (confirm('Batalkan mode edit? Perubahan yang belum disimpan akan hilang.')) {
+                  setEditingRecordId(null);
+                  setTreatments([]);
+                  setSelectedTreatments([]);
+                  setActiveTab('riwayat');
+                }
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-rose-500 text-white rounded-xl text-sm font-bold hover:bg-rose-600 transition-colors shadow-lg shadow-rose-200"
+            >
+              <X size={16} />
+              Batal Edit
+            </button>
+          )}
           <button 
-            onClick={onSave}
+            onClick={handlePatientSave}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200"
           >
             <Save size={16} />
-            Simpan Data
+            {editingRecordId ? 'Simpan Perubahan' : 'Simpan Data'}
           </button>
         </div>
       </div>
@@ -2517,20 +3095,59 @@ const MedicalRecord = ({
                   <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Tinggi Badan (cm)</label>
                     <input 
-                      type="text" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      type="number" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       value={anamnesis.vitalSigns.tb}
-                      onChange={e => setAnamnesis({...anamnesis, vitalSigns: {...anamnesis.vitalSigns, tb: e.target.value}})}
+                      onChange={e => {
+                        const tb = e.target.value;
+                        const bb = anamnesis.vitalSigns.bb;
+                        let bmi = '';
+                        if (bb && tb && parseFloat(tb) > 0) {
+                          bmi = (parseFloat(bb) / Math.pow(parseFloat(tb) / 100, 2)).toFixed(1);
+                        }
+                        setAnamnesis({...anamnesis, vitalSigns: {...anamnesis.vitalSigns, tb, bmi}});
+                      }}
                       placeholder="Contoh: 170"
                     />
                   </div>
                   <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Berat Badan (kg)</label>
                     <input 
-                      type="text" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      type="number" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                       value={anamnesis.vitalSigns.bb}
-                      onChange={e => setAnamnesis({...anamnesis, vitalSigns: {...anamnesis.vitalSigns, bb: e.target.value}})}
+                      onChange={e => {
+                        const bb = e.target.value;
+                        const tb = anamnesis.vitalSigns.tb;
+                        let bmi = '';
+                        if (bb && tb && parseFloat(tb) > 0) {
+                          bmi = (parseFloat(bb) / Math.pow(parseFloat(tb) / 100, 2)).toFixed(1);
+                        }
+                        setAnamnesis({...anamnesis, vitalSigns: {...anamnesis.vitalSigns, bb, bmi}});
+                      }}
                       placeholder="Contoh: 65"
                     />
+                  </div>
+                  <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 space-y-2">
+                    <label className="block text-xs font-bold text-blue-500 uppercase tracking-wider">BMI (Body Mass Index)</label>
+                    <div className="flex items-center gap-3">
+                      <input 
+                        type="text" readOnly
+                        className="w-full p-3 bg-white border border-blue-200 rounded-xl text-sm font-bold text-blue-700 focus:outline-none"
+                        value={anamnesis.vitalSigns.bmi}
+                        placeholder="Otomatis"
+                      />
+                      <span className={cn(
+                        "text-[10px] font-bold px-2 py-1 rounded-full uppercase",
+                        parseFloat(anamnesis.vitalSigns.bmi) < 18.5 ? "bg-amber-100 text-amber-700" :
+                        parseFloat(anamnesis.vitalSigns.bmi) < 25 ? "bg-emerald-100 text-emerald-700" :
+                        parseFloat(anamnesis.vitalSigns.bmi) < 30 ? "bg-amber-100 text-amber-700" :
+                        "bg-red-100 text-red-700"
+                      )}>
+                        {parseFloat(anamnesis.vitalSigns.bmi) < 18.5 ? "Underweight" :
+                         parseFloat(anamnesis.vitalSigns.bmi) < 25 ? "Normal" :
+                         parseFloat(anamnesis.vitalSigns.bmi) < 30 ? "Overweight" :
+                         anamnesis.vitalSigns.bmi ? "Obese" : "-"}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -3407,7 +4024,7 @@ const MedicalRecord = ({
                       medicalHistory: { sehat: true, penyakitSerius: false, detailPenyakitSerius: '', kelainanDarah: false, detailKelainanDarah: '', alergi: { hasAlergi: false, makanan: '', obatObatan: '', obatBius: '', cuaca: '', lainLain: '' }, hasLainLain: false, detailLainLain: '' },
                       socialHistory: '',
                       dentalHistory: { alasanKunjungan: '', inginDiketahui: [], inginDiketahuiLainnya: '', rontgen2Tahun: false, rontgenType: '', komplikasiPerawatan: false, detailKomplikasi: '', pendapatKunjunganLalu: '', pendapatKesehatanUmum: '', gejala: [], gejalaLainnya: '', gemeretakGigi: false, biteGuard: false, cemasAromaNafas: false, masalahAromaNafas: [], cederaGigi: false, detailCedera: '', pengalamanLalu: [], pengalamanLaluLainnya: '', homeCareTools: [], homeCareToolsLainnya: '', toothpasteBenefits: [], toothpasteBenefitsLainnya: '', cleaningTimeBrushing: '', cleaningTimeFlossing: '', frequencyBrushing: '', frequencyFlossing: '', brushingTimes: [], brushingTimesLainnya: '', difficultyScheduling: null, difficultyCleaningCondition: null, difficultyCleaningOptions: [], difficultyCleaningLainnya: '', monthlyOralCancerCheck: null, habits: [], habitsLainnya: '' },
-                      vitalSigns: { tensi: '', suhu: '', tb: '', bb: '', hr: '', rr: '' },
+                      vitalSigns: { tensi: '', suhu: '', tb: '', bb: '', hr: '', rr: '', bmi: '' },
                       cemilan: [ { name: 'Permen Mint', selected: false, frequency: '' }, { name: 'Minuman Manis', selected: false, frequency: '' }, { name: 'Buah Kering', selected: false, frequency: '' }, { name: 'Minuman Kaleng/Botol', selected: false, frequency: '' }, { name: 'Permen Karet', selected: false, frequency: '' }, { name: 'Kerupuk', selected: false, frequency: '' }, { name: 'Obat Syrup', selected: false, frequency: '' }, { name: 'Keripik', selected: false, frequency: '' }, { name: 'Kue Kering', selected: false, frequency: '' }, { name: 'Lainnya', selected: false, frequency: '', detail: '' } ],
                       keyakinan: { kemungkinanBerlubang: '', pentingnyaPencegahan: '', percayaBisaMenjaga: null, percayaKesehatanGigi: '' },
                       pharmacological: { konsumsiObat: null, detailObat: '', untukApa: '', efekSamping: '', pengaruhPositif: '', masalahDosis: null, detailDosis: '', konsumsiTeratur: null }
@@ -4287,7 +4904,7 @@ const MedicalRecord = ({
         {activeTab === 'treatment' && (
           <div className="space-y-8">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-slate-900">Tindakan & Biaya (Perda No. 10/2023)</h3>
+              <h3 className="text-lg font-bold text-slate-900 font-sans tracking-tight">Tindakan & Biaya (Perda Kab. Bandung No. 9/2025 - Puskesmas)</h3>
               <div className="text-right">
                 <p className="text-xs font-bold text-slate-400 uppercase">Total Estimasi</p>
                 <p className="text-2xl font-black text-blue-600">
@@ -4520,10 +5137,79 @@ const MedicalRecord = ({
 
               <div className="space-y-4">
                 <h4 className="font-black text-slate-900 border-l-4 border-blue-600 pl-3 uppercase text-xs">Ringkasan Pemeriksaan</h4>
-                <div className="grid grid-cols-1 gap-4 text-sm bg-slate-50 p-4 rounded-2xl">
-                  <p><span className="font-bold">Keluhan:</span> {anamnesis.dentalHistory.alasanKunjungan || '-'}</p>
-                  <p><span className="font-bold">Diagnosa:</span> {selectedNeeds.join(', ') || '-'}</p>
-                  <p><span className="font-bold">Tindakan:</span> {selectedTreatments.map(id => TREATMENTS_2023.find(t => t.id === id)?.name).join(', ') || '-'}</p>
+                <div className="grid grid-cols-1 gap-4 text-sm bg-slate-50 p-6 rounded-2xl space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <p><span className="font-bold">Keluhan Utama:</span> {anamnesis.dentalHistory.alasanKunjungan || '-'}</p>
+                    <p><span className="font-bold">Diagnosa Umum:</span> {selectedNeeds.join(', ') || '-'}</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-white rounded-xl border border-slate-100 shadow-sm">
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">TD (mmHg)</p>
+                      <p className="text-sm font-bold text-slate-700">{anamnesis.vitalSigns.tensi || '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Suhu (°C)</p>
+                      <p className="text-sm font-bold text-slate-700">{anamnesis.vitalSigns.suhu || '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">BMI</p>
+                      <p className={cn(
+                        "text-sm font-bold px-2 py-0.5 rounded-lg inline-block",
+                        anamnesis.vitalSigns.bmi ? "bg-blue-50 text-blue-700" : "text-slate-700"
+                      )}>
+                        {anamnesis.vitalSigns.bmi || '-'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Status BMI</p>
+                      <span className={cn(
+                        "text-[10px] font-bold px-2 py-1 rounded-full uppercase",
+                        !anamnesis.vitalSigns.bmi ? "hidden" :
+                        parseFloat(anamnesis.vitalSigns.bmi) < 18.5 ? "bg-amber-100 text-amber-700" :
+                        parseFloat(anamnesis.vitalSigns.bmi) < 25 ? "bg-emerald-100 text-emerald-700" :
+                        parseFloat(anamnesis.vitalSigns.bmi) < 30 ? "bg-amber-100 text-amber-700" :
+                        "bg-red-100 text-red-700"
+                      )}>
+                        {parseFloat(anamnesis.vitalSigns.bmi) < 18.5 ? "Underweight" :
+                         parseFloat(anamnesis.vitalSigns.bmi) < 25 ? "Normal" :
+                         parseFloat(anamnesis.vitalSigns.bmi) < 30 ? "Overweight" :
+                         "Obese"}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="pt-4 border-t border-slate-200">
+                    <p className="font-bold text-blue-800 uppercase text-[10px] mb-2">Diagnosis Askesgilut (Dental Hygiene Diagnosis)</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2">
+                      <p><span className="font-bold">Kebutuhan Tidak Terpenuhi:</span> {dentalHygieneDiagnosis.unmetNeeds || '-'}</p>
+                      <p><span className="font-bold">Penyebab:</span> {dentalHygieneDiagnosis.cause || '-'}</p>
+                      <p><span className="font-bold">Tanda & Gejala:</span> {dentalHygieneDiagnosis.signsSymptoms || '-'}</p>
+                      <p><span className="font-bold">Intervensi:</span> {dentalHygieneDiagnosis.interventions || '-'}</p>
+                      <p className="md:col-span-2"><span className="font-bold">Rekomendasi Selanjutnya:</span> {dentalHygieneDiagnosis.nextTreatmentRecommendation || '-'}</p>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-200">
+                    <p className="font-bold text-blue-800 uppercase text-[10px] mb-2">Temuan Odontogram</p>
+                    <div className="flex flex-wrap gap-2">
+                      {Object.keys(toothData).length > 0 ? Object.entries(toothData).map(([id, data]) => {
+                        const info = Object.entries(data).filter(([_, status]) => status !== 'healthy');
+                        if (info.length === 0) return null;
+                        return (
+                          <div key={id} className="text-xs bg-white border border-slate-200 px-3 py-1 rounded-lg">
+                            <span className="font-bold text-slate-900">Gigi {id}: </span>
+                            <span className="text-slate-600">{info.map(([surface, status]) => `${surface} (${status})`).join(', ')}</span>
+                          </div>
+                        );
+                      }) : <p className="text-xs text-slate-500 italic">Tidak ada kelainan gigi yang dicatat.</p>}
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-200">
+                    <p><span className="font-bold text-blue-800 uppercase text-[10px]">Tindakan yang Dilakukan</span></p>
+                    <p className="mt-1">{selectedTreatments.map(id => TREATMENTS_2023.find(t => t.id === id)?.name).join(', ') || '-'}</p>
+                  </div>
                 </div>
               </div>
 
@@ -4594,15 +5280,41 @@ const MedicalRecord = ({
               </div>
             </div>
             <div className="space-y-4">
-              {history.map((item, i) => (
+              {history.length > 0 ? history.map((item, i) => (
                 <div key={i} className="p-6 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-blue-200 transition-all">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <Calendar size={14} className="text-blue-600" />
                       <span className="text-sm font-black text-slate-900">{new Date(item.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
                     </div>
-                    <p className="text-sm text-slate-600"><span className="font-bold text-slate-900">Diagnosa:</span> {item.diagnosis.unmetNeeds || '-'}</p>
-                    <p className="text-sm text-slate-600"><span className="font-bold text-slate-900">Tindakan:</span> {item.treatment.map((id: string) => TREATMENTS_2023.find(t => t.id === id)?.name).join(', ') || '-'}</p>
+                    <div className="space-y-2 mt-2 p-3 bg-white rounded-xl border border-slate-100">
+                      <p className="text-xs text-slate-600"><span className="font-bold text-slate-900 uppercase text-[10px]">Diagnosa Askesgilut:</span><br/>{item.diagnosis.unmetNeeds || '-'}</p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <p className="text-xs text-slate-600"><span className="font-bold text-slate-900 uppercase text-[10px]">Penyebab:</span><br/>{item.diagnosis.cause || '-'}</p>
+                        <p className="text-xs text-slate-600"><span className="font-bold text-slate-900 uppercase text-[10px]">Gejala:</span><br/>{item.diagnosis.signsSymptoms || '-'}</p>
+                      </div>
+                      <div className="grid grid-cols-4 gap-2 pt-2 border-t border-slate-50">
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase">Tensi</p>
+                          <p className="font-bold text-xs text-slate-700">{item.vitalSigns?.tensi || '-'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase">Suhu</p>
+                          <p className="font-bold text-xs text-slate-700">{item.vitalSigns?.suhu || '-'}°C</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase">BMI</p>
+                          <p className="font-bold text-xs text-slate-700">{(item as any).vitalSigns?.bmi || '-'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase">OHI-S</p>
+                          <p className="font-bold text-xs text-slate-700">
+                            {(item.clinical.ohis as any)?.total || '-'}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-600 mt-2"><span className="font-bold text-slate-900 uppercase text-[10px]">Tindakan:</span><br/>{item.treatment.map((id: string) => TREATMENTS_2023.find(t => t.id === id)?.name).join(', ') || '-'}</p>
+                    </div>
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="flex gap-4">
@@ -4615,18 +5327,42 @@ const MedicalRecord = ({
                         <p className="text-sm font-bold text-slate-700">{item.therapist || '-'}</p>
                       </div>
                     </div>
-                    <button 
-                      onClick={() => {
-                        // Logic to view detail
-                        setIsPreviousVisitModalOpen(true);
-                      }}
-                      className="p-3 bg-white border border-slate-200 rounded-xl text-blue-600 hover:bg-blue-50 transition-all shadow-sm"
-                    >
-                      <FileText size={18} />
-                    </button>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => {
+                          setSelectedVisitIndex(i);
+                          setIsPreviousVisitModalOpen(true);
+                        }}
+                        title="Lihat Detail"
+                        className="p-3 bg-white border border-slate-200 rounded-xl text-blue-600 hover:bg-blue-50 transition-all shadow-sm"
+                      >
+                        <FileText size={18} />
+                      </button>
+                      <button 
+                        onClick={() => loadRecordForEditing(item)}
+                        title="Edit Data Ini"
+                        className="p-3 bg-white border border-slate-200 rounded-xl text-emerald-600 hover:bg-emerald-50 transition-all shadow-sm"
+                      >
+                        <Edit size={18} />
+                      </button>
+                      {onDeleteRecord && (
+                        <button 
+                          onClick={() => setRecordToDelete(item)}
+                          title="Hapus Kunjungan Ini"
+                          className="p-3 bg-white border border-slate-200 rounded-xl text-red-600 hover:bg-red-50 hover:border-red-200 transition-all shadow-sm"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
-              ))}
+              )) : (
+                <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                  <History size={40} className="mx-auto text-slate-300 mb-2" />
+                  <p className="text-slate-500 font-medium">Belum ada riwayat kunjungan</p>
+                </div>
+              )}
             </div>
             <div className="flex justify-end gap-3 pt-6 border-t border-slate-100 print:hidden">
               <button 
@@ -4665,39 +5401,137 @@ const MedicalRecord = ({
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden"
+              className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
             >
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
                     <History size={20} />
                   </div>
-                  <h3 className="text-xl font-bold text-slate-900">Detail Kunjungan Sebelumnya</h3>
+                  <h3 className="text-xl font-bold text-slate-900">Detail Kunjungan</h3>
                 </div>
                 <button onClick={() => setIsPreviousVisitModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400">
                   <X size={20} />
                 </button>
               </div>
-              <div className="p-6 space-y-6">
-                {history.length > 0 ? (
-                  <div className="space-y-4">
+              <div className="p-6 space-y-6 overflow-y-auto">
+                {selectedVisitIndex !== null && history[selectedVisitIndex] ? (
+                  <div className="space-y-6">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Tanggal Kunjungan</p>
-                        <p className="font-bold text-slate-900">{new Date(history[0].date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                        <p className="font-bold text-slate-900">{new Date(history[selectedVisitIndex].date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                       </div>
                       <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Dokter Pemeriksa</p>
-                        <p className="font-bold text-slate-900">{history[0].doctor}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Petugas (Therapist)</p>
+                        <p className="font-bold text-slate-900">{(history[selectedVisitIndex] as any).therapist || 'Drg. Default'}</p>
                       </div>
                     </div>
-                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Diagnosa Terakhir</p>
-                      <p className="text-sm text-slate-700 leading-relaxed">{history[0].diagnosis}</p>
+
+                    <div className="space-y-4">
+                      <div>
+                        <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-2 flex items-center gap-2">
+                          <Activity size={12} /> Tanda-tanda Vital
+                        </p>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          <div className="p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                            <p className="text-[9px] font-bold text-slate-400 uppercase">TD (mmHg)</p>
+                            <p className="font-bold text-slate-900 text-sm">{history[selectedVisitIndex].vitalSigns?.tensi || '-'}</p>
+                          </div>
+                          <div className="p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                            <p className="text-[9px] font-bold text-slate-400 uppercase">Suhu (°C)</p>
+                            <p className="font-bold text-slate-900 text-sm">{history[selectedVisitIndex].vitalSigns?.suhu || '-'}</p>
+                          </div>
+                          <div className="p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                            <p className="text-[9px] font-bold text-slate-400 uppercase">BMI</p>
+                            <p className="font-bold text-slate-900 text-sm">{(history[selectedVisitIndex] as any).vitalSigns?.bmi || '-'}</p>
+                          </div>
+                          <div className="p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                            <p className="text-[9px] font-bold text-slate-400 uppercase">Nadi (bpm)</p>
+                            <p className="font-bold text-slate-900 text-sm">{history[selectedVisitIndex].vitalSigns?.hr || '-'}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-2 flex items-center gap-2">
+                          <UserCircle size={12} /> Ringkasan Anamnesis
+                        </p>
+                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+                          <p className="text-xs text-slate-600"><span className="font-bold text-slate-800">Keluhan:</span> {history[selectedVisitIndex].anamnesis?.dentalHistory?.alasanKunjungan || '-'}</p>
+                          <p className="text-xs text-slate-600"><span className="font-bold text-slate-800">Riwayat Medis:</span> {history[selectedVisitIndex].anamnesis?.medicalHistory?.sehat ? 'Sehat' : 'Ada keluhan medis'}</p>
+                          <p className="text-xs text-slate-600"><span className="font-bold text-slate-800">Alergi:</span> {history[selectedVisitIndex].anamnesis?.medicalHistory?.alergi?.hasAlergi ? 'Ada' : 'Tidak ada'}</p>
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-2 flex items-center gap-2">
+                          <Stethoscope size={12} /> Pemeriksaan Klinis (Internal)
+                        </p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                            <p className="text-[9px] font-bold text-slate-400 uppercase">Skor OHI-S</p>
+                            <p className="font-bold text-slate-900">{(history[selectedVisitIndex].clinical?.ohis as any)?.total || '-'}</p>
+                          </div>
+                          <div className="p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                            <p className="text-[9px] font-bold text-slate-400 uppercase">Plak Indeks (%)</p>
+                            <p className="font-bold text-slate-900">{(history[selectedVisitIndex].clinical?.plaque as any)?.totalScore || '-'}</p>
+                          </div>
+                        </div>
+                        <div className="mt-3">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Temuan Odontogram</p>
+                          <div className="flex flex-wrap gap-2">
+                            {history[selectedVisitIndex].clinical?.odontogram?.toothData && Object.keys(history[selectedVisitIndex].clinical.odontogram.toothData).length > 0 ? 
+                              Object.entries(history[selectedVisitIndex].clinical.odontogram.toothData).map(([id, data]: [string, any]) => {
+                                const info = Object.entries(data).filter(([_, status]) => status !== 'healthy');
+                                if (info.length === 0) return null;
+                                return (
+                                  <div key={id} className="text-xs bg-white border border-slate-200 px-2 py-1 rounded-lg">
+                                    <span className="font-bold text-slate-900">Gigi {id}: </span>
+                                    <span className="text-slate-600">{info.map(([surface, status]) => `${surface} (${status})`).join(', ')}</span>
+                                  </div>
+                                );
+                              }) : <p className="text-xs text-slate-500 italic">Tidak ada temuan odontogram.</p>
+                            }
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-2 flex items-center gap-2">
+                          <ClipboardList size={12} /> Diagnosa & Tindakan
+                        </p>
+                        <div className="p-4 bg-white border border-slate-200 rounded-2xl space-y-3">
+                          <div>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase">Diagnosis Utama</p>
+                            <p className="text-sm font-bold text-slate-800">{history[selectedVisitIndex].diagnosis?.unmetNeeds || '-'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase">Tindakan Dilakukan</p>
+                            <p className="text-sm font-medium text-slate-700">
+                              {history[selectedVisitIndex].treatment?.map((id: string) => TREATMENTS_2023.find(t => t.id === id)?.name).join(', ') || 'Tanpa Tindakan'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Tindakan Dilakukan</p>
-                      <p className="text-sm text-slate-700 leading-relaxed">{history[0].treatment}</p>
+                    {/* Tanda Vital Section */}
+                    <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
+                      <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-1">Status Tanda Vital</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <p className="text-[10px] text-blue-400">Tensi</p>
+                          <p className="text-xs font-bold text-blue-700">{history[selectedVisitIndex].vitalSigns?.tensi || '-'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-blue-400">Nadi</p>
+                          <p className="text-xs font-bold text-blue-700">{history[selectedVisitIndex].vitalSigns?.hr || '-'} bpm</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-blue-400">Suhu</p>
+                          <p className="text-xs font-bold text-blue-700">{history[selectedVisitIndex].vitalSigns?.suhu || '-'} °C</p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -4706,15 +5540,77 @@ const MedicalRecord = ({
                   </div>
                 )}
                 <div className="pt-4 flex gap-3">
-                  <button onClick={() => setIsPreviousVisitModalOpen(false)} className="flex-1 px-6 py-3 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all">Tutup</button>
+                  <button onClick={() => setIsPreviousVisitModalOpen(false)} className="px-5 py-3 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all text-sm">Tutup</button>
+                  <button 
+                    onClick={() => {
+                      const record = history[selectedVisitIndex!];
+                      setIsPreviousVisitModalOpen(false);
+                      loadRecordForEditing(record);
+                    }}
+                    className="flex-1 px-5 py-3 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 text-sm"
+                  >
+                    <Edit size={16} />
+                    Edit Kunjungan Ini
+                  </button>
                   <button 
                     onClick={() => {
                       setIsPreviousVisitModalOpen(false);
                       setActiveTab('riwayat');
                     }} 
-                    className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
+                    className="px-5 py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 text-sm"
                   >
-                    Lihat Semua Riwayat
+                    Seluruh Riwayat
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {isNextVisitViewOpen && nextVisit && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden"
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
+                    <Calendar size={20} />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900">Detail Kunjungan Mendatang</h3>
+                </div>
+                <button onClick={() => setIsNextVisitViewOpen(false)} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400">
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Tanggal</p>
+                    <p className="font-bold text-slate-900">{new Date(nextVisit.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                  </div>
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Jam</p>
+                    <p className="font-bold text-slate-900">{nextVisit.time}</p>
+                  </div>
+                </div>
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Jenis Layanan</p>
+                  <p className="font-bold text-slate-900">{nextVisit.type}</p>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button onClick={() => setIsNextVisitViewOpen(false)} className="flex-1 px-6 py-3 bg-slate-100 text-slate-600 rounded-2xl font-bold">Tutup</button>
+                  <button 
+                    onClick={() => {
+                      setIsNextVisitViewOpen(false);
+                      setIsAppointmentModalOpen(true);
+                    }} 
+                    className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-2xl font-bold"
+                  >
+                    Ubah Jadwal
                   </button>
                 </div>
               </div>
@@ -4784,6 +5680,48 @@ const MedicalRecord = ({
             </motion.div>
           </div>
         )}
+
+        {recordToDelete && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden"
+            >
+              <div className="p-6 text-center">
+                <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600">
+                  <AlertCircle size={32} />
+                </div>
+                <h3 className="text-xl font-bold text-slate-900 mb-2">Hapus Kunjungan Ini?</h3>
+                <p className="text-sm text-slate-500 mb-6">
+                  Anda yakin ingin menghapus data rekam medis kunjungan tanggal <span className="font-semibold text-slate-700">{new Date(recordToDelete.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</span>? Tindakan ini tidak dapat dibatalkan.
+                </p>
+                <div className="flex gap-3">
+                  <button 
+                    type="button" 
+                    onClick={() => setRecordToDelete(null)} 
+                    className="flex-1 px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-2xl transition-all"
+                  >
+                    Batal
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      if (onDeleteRecord) {
+                        onDeleteRecord(recordToDelete.id);
+                      }
+                      setRecordToDelete(null);
+                    }} 
+                    className="flex-1 px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-2xl transition-all shadow-lg shadow-red-200"
+                  >
+                    Ya, Hapus
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
       </AnimatePresence>
     </div>
   );
@@ -4815,6 +5753,7 @@ const Appointments = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [selectedDate, setSelectedDate] = useState<number>(new Date().getDate());
+  const [appointmentToDelete, setAppointmentToDelete] = useState<Appointment | null>(null);
 
   if (user?.role === 'Pasien' && !isPatientVerified) {
     return (
@@ -4988,11 +5927,7 @@ const Appointments = ({
                             <Edit size={16} />
                           </button>
                           <button 
-                            onClick={() => {
-                              if (confirm('Apakah Anda yakin ingin menghapus jadwal ini?')) {
-                                onDeleteAppointment(apt.id);
-                              }
-                            }}
+                            onClick={() => setAppointmentToDelete(apt)}
                             className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                             title="Hapus Jadwal"
                           >
@@ -5101,6 +6036,53 @@ const Appointments = ({
                   {editingAppointment ? 'Simpan Perubahan' : 'Simpan Jadwal'}
                 </button>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Appointment Delete Confirmation Modal */}
+      <AnimatePresence>
+        {appointmentToDelete && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6 space-y-6 overflow-hidden"
+            >
+              <div className="flex items-center gap-3 text-red-600">
+                <AlertCircle className="shrink-0" size={24} />
+                <h3 className="text-lg font-bold">Hapus Jadwal Kunjungan</h3>
+              </div>
+              
+              <div className="text-sm text-slate-600 leading-relaxed">
+                Apakah Anda yakin ingin menghapus jadwal kunjungan pasien <span className="font-bold text-slate-900">{appointmentToDelete.patient}</span> pada tanggal <span className="font-bold text-slate-900">{appointmentToDelete.date}</span> jam <span className="font-bold text-slate-900">{appointmentToDelete.time} WIB</span>?
+                <span className="block mt-2 text-xs text-slate-500 bg-red-50 border border-red-100 p-3 rounded-xl block leading-relaxed">
+                  ⚠️ Tindakan ini bersifat permanen dan tidak dapat dibatalkan.
+                </span>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button 
+                  type="button"
+                  onClick={() => setAppointmentToDelete(null)}
+                  className="px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-colors text-slate-600"
+                >
+                  Batal
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    onDeleteAppointment(appointmentToDelete.id);
+                    setAppointmentToDelete(null);
+                  }}
+                  className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold transition-colors shadow-lg shadow-red-200 flex items-center gap-2"
+                >
+                  <Trash2 size={16} />
+                  Ya, Hapus Jadwal
+                </button>
+              </div>
             </motion.div>
           </div>
         )}
@@ -5297,12 +6279,72 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isPatientVerified, setIsPatientVerified] = useState(false);
   const [patients, setPatients] = useState<Patient[]>(MOCK_PATIENTS);
+  const [medicalRecords, setMedicalRecords] = useState<MedicalRecordEntry[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([
+    { id: 1, patient: 'Ahmad Subarjo', date: '2026-04-10', time: '09:00', type: 'Pemeriksaan Rutin', status: 'confirmed' },
+    { id: 2, patient: 'Siti Aminah', date: '2026-04-10', time: '10:30', type: 'Scaling Gigi', status: 'pending' },
+    { id: 3, patient: 'Budi Santoso', date: '2026-04-11', time: '14:00', type: 'Penambalan', status: 'confirmed' },
+  ]);
+  const [invoices, setInvoices] = useState<Invoice[]>([
+    { id: 'INV-001', patient: 'Ahmad Subarjo', date: '2026-04-05', amount: 450000, status: 'paid', method: 'Transfer Bank' },
+    { id: 'INV-002', patient: 'Siti Aminah', date: '2026-04-06', amount: 1250000, status: 'unpaid', method: '-' },
+    { id: 'INV-003', patient: 'Budi Santoso', date: '2026-04-06', amount: 350000, status: 'paid', method: 'Tunai' },
+    { id: 'INV-004', patient: 'Dewi Lestari', date: '2026-04-07', amount: 2100000, status: 'pending', method: 'BPJS' },
+  ]);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+
+  const handleUpdateAppointment = (apt: Appointment) => {
+    const updated = appointments.map(a => a.id === apt.id ? apt : a);
+    setAppointments(updated);
+    handleSyncData({ appointments: updated });
+    showToast('Jadwal berhasil diperbarui!');
+  };
+
+  const handleDeleteAppointment = (id: number) => {
+    const updated = appointments.filter(a => a.id !== id);
+    setAppointments(updated);
+    handleSyncData({ appointments: updated });
+    showToast('Jadwal berhasil dihapus!');
+  };
+
+  const handleRemindAppointment = (apt: Appointment) => {
+    addNotification('Pengingat Jadwal', `Pengingat telah dikirim ke pasien ${apt.patient} untuk jadwal tanggal ${apt.date} jam ${apt.time}.`);
+    showToast('Pengingat berhasil dikirim!');
+  };
+
+  const [appConfig, setAppConfig] = useState({
+    clinicName: 'DentaCare RME',
+    address: 'Jl. Kesehatan No. 123, Jakarta Selatan',
+    phone: '(021) 1234-5678',
+    notifications: true,
+    autoBackup: true,
+    darkMode: false,
+    encryption: true,
+    auditLog: true,
+    twoFactor: false
+  });
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+
+  const handleSyncData = async (newData?: { patients?: Patient[], appointments?: Appointment[], invoices?: Invoice[], medicalRecords?: MedicalRecordEntry[], appConfig?: any }) => {
+    if (!user?.uid) return;
+    try {
+      const { setDoc } = await import('firebase/firestore');
+      await setDoc(doc(db, 'users', user.uid, 'appData', 'state'), {
+        patients: newData?.patients || patients,
+        appointments: newData?.appointments || appointments,
+        invoices: newData?.invoices || invoices,
+        medicalRecords: newData?.medicalRecords || medicalRecords,
+        appConfig: newData?.appConfig || appConfig,
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error saving data:", error);
+    }
+  };
 
   const addNotification = (title: string, message: string) => {
     setNotifications(prev => [{
@@ -5322,47 +6364,27 @@ export default function App() {
     }
   };
 
+  // --- Sync State to Firestore automatically ---
+  const [lastSyncedState, setLastSyncedState] = useState<string>('');
+
+  useEffect(() => {
+    if (!user?.uid || !isAuthReady) return;
+
+    const currentState = JSON.stringify({ patients, appointments, invoices, medicalRecords, appConfig });
+    if (currentState === lastSyncedState) return;
+
+    const timer = setTimeout(() => {
+      handleSyncData();
+      setLastSyncedState(currentState);
+    }, 2000); // Debounce sync
+
+    return () => clearTimeout(timer);
+  }, [patients, appointments, invoices, medicalRecords, appConfig, user?.uid, isAuthReady]);
+
   const handleSave = (message: string) => {
-    // Simulate saving
-    showToast(message);
+    handleSyncData();
+    showToast(message, 'success');
   };
-  const [appointments, setAppointments] = useState<Appointment[]>([
-    { id: 1, patient: 'Ahmad Subarjo', date: '2026-04-10', time: '09:00', type: 'Pemeriksaan Rutin', status: 'confirmed' },
-    { id: 2, patient: 'Siti Aminah', date: '2026-04-10', time: '10:30', type: 'Scaling Gigi', status: 'pending' },
-    { id: 3, patient: 'Budi Santoso', date: '2026-04-11', time: '14:00', type: 'Penambalan', status: 'confirmed' },
-  ]);
-
-  const handleAddAppointment = (apt: Omit<Appointment, 'id' | 'status'>) => {
-    const newApt: Appointment = {
-      ...apt,
-      id: Date.now(),
-      status: 'pending'
-    };
-    setAppointments([...appointments, newApt]);
-    showToast('Jadwal berhasil ditambahkan!');
-  };
-
-  const handleUpdateAppointment = (apt: Appointment) => {
-    setAppointments(appointments.map(a => a.id === apt.id ? apt : a));
-    showToast('Jadwal berhasil diperbarui!');
-  };
-
-  const handleDeleteAppointment = (id: number) => {
-    setAppointments(appointments.filter(a => a.id !== id));
-    showToast('Jadwal berhasil dihapus!');
-  };
-
-  const handleRemindAppointment = (apt: Appointment) => {
-    addNotification('Pengingat Jadwal', `Pengingat telah dikirim ke pasien ${apt.patient} untuk jadwal tanggal ${apt.date} jam ${apt.time}.`);
-    showToast('Pengingat berhasil dikirim!');
-  };
-
-  const [invoices, setInvoices] = useState<Invoice[]>([
-    { id: 'INV-001', patient: 'Ahmad Subarjo', date: '2026-04-05', amount: 450000, status: 'paid', method: 'Transfer Bank' },
-    { id: 'INV-002', patient: 'Siti Aminah', date: '2026-04-06', amount: 1250000, status: 'unpaid', method: '-' },
-    { id: 'INV-003', patient: 'Budi Santoso', date: '2026-04-06', amount: 350000, status: 'paid', method: 'Tunai' },
-    { id: 'INV-004', patient: 'Dewi Lestari', date: '2026-04-07', amount: 2100000, status: 'pending', method: 'BPJS' },
-  ]);
 
   const handleBack = () => {
     if (currentPage === 'records' && selectedPatientId) {
@@ -5390,6 +6412,8 @@ export default function App() {
               if (appData.patients) setPatients(appData.patients);
               if (appData.appointments) setAppointments(appData.appointments);
               if (appData.invoices) setInvoices(appData.invoices);
+              if (appData.medicalRecords) setMedicalRecords(appData.medicalRecords);
+              if (appData.appConfig) setAppConfig(appData.appConfig);
             }
             
             // Load all users for dropdowns
@@ -5444,6 +6468,8 @@ export default function App() {
           if (appData.patients) setPatients(appData.patients);
           if (appData.appointments) setAppointments(appData.appointments);
           if (appData.invoices) setInvoices(appData.invoices);
+          if (appData.medicalRecords) setMedicalRecords(appData.medicalRecords);
+          if (appData.appConfig) setAppConfig(appData.appConfig);
         }
         
         // Load all users for dropdowns
@@ -5478,27 +6504,6 @@ export default function App() {
     }
   };
 
-  const handleSyncData = async () => {
-    if (!user?.uid) {
-      showToast('Gagal menyimpan: Pengguna tidak valid', 'error');
-      return;
-    }
-    try {
-      showToast('Menyimpan data ke cloud...', 'success');
-      const { setDoc } = await import('firebase/firestore');
-      await setDoc(doc(db, 'users', user.uid, 'appData', 'state'), {
-        patients,
-        appointments,
-        invoices,
-        lastUpdated: new Date().toISOString()
-      });
-      showToast('Data berhasil disimpan ke cloud!', 'success');
-    } catch (error) {
-      console.error("Error saving data:", error);
-      showToast('Gagal menyimpan data', 'error');
-    }
-  };
-
   const canAccess = (page: Page) => {
     if (!user) return false;
     if (['Admin', 'Dokter Gigi', 'Terapis Gigi dan Mulut', 'Dosen'].includes(user.role)) return true;
@@ -5510,19 +6515,113 @@ export default function App() {
     const lastMR = patients.length > 0 ? patients[patients.length - 1].mrNumber : 'RM-000';
     const newPatient: Patient = {
       ...data,
-      id: (patients.length + 1).toString(),
+      id: Date.now().toString(),
       mrNumber: generateMRNumber(lastMR),
       status: 'active'
     };
-    setPatients([...patients, newPatient]);
+    const updatedPatients = [...patients, newPatient];
+    setPatients(updatedPatients);
+    handleSyncData({ patients: updatedPatients });
+    showToast('Pasien berhasil ditambahkan!', 'success');
   };
 
   const handleUpdatePatient = (updated: Patient) => {
-    setPatients(patients.map(p => p.id === updated.id ? updated : p));
+    const updatedPatients = patients.map(p => p.id === updated.id ? updated : p);
+    setPatients(updatedPatients);
+    handleSyncData({ patients: updatedPatients });
+    showToast('Data pasien diperbarui!', 'success');
   };
 
   const handleDeletePatient = (id: string) => {
-    setPatients(patients.filter(p => p.id !== id));
+    const updatedPatients = patients.filter(p => p.id !== id);
+    setPatients(updatedPatients);
+    if (selectedPatientId === id) {
+      setSelectedPatientId(null);
+    }
+    handleSyncData({ patients: updatedPatients });
+    showToast('Pasien berhasil dihapus!', 'success');
+  };
+
+  const handleAddAppointment = (apt: Omit<Appointment, 'id' | 'status'>) => {
+    const newApt: Appointment = {
+      ...apt,
+      id: Date.now(),
+      status: 'pending'
+    };
+    const updatedAppointments = [...appointments, newApt];
+    setAppointments(updatedAppointments);
+    handleSyncData({ appointments: updatedAppointments });
+    showToast('Jadwal berhasil ditambahkan!', 'success');
+  };
+
+  const onDeleteMedicalRecord = (id: string) => {
+    const updatedRecords = medicalRecords.filter(rec => rec.id !== id);
+    setMedicalRecords(updatedRecords);
+    handleSyncData({ medicalRecords: updatedRecords });
+    showToast('Rekam medis berhasil dihapus!', 'success');
+  };
+
+  const onAddMedicalRecord = (entry: Omit<MedicalRecordEntry, 'id'>, existingId?: string) => {
+    const updatedRecords = existingId 
+      ? medicalRecords.map(rec => rec.id === existingId ? { ...entry, id: existingId } as MedicalRecordEntry : rec)
+      : [...medicalRecords, { ...entry, id: Date.now().toString() }];
+    
+    setMedicalRecords(updatedRecords);
+    
+    // Auto-create or update invoice if there are treatments
+    if (entry.treatment && entry.treatment.length > 0) {
+      const patient = patients.find(p => p.id === entry.patientId);
+      if (patient) {
+        const totalAmount = patient.insurance === 'BPJS' ? 0 : entry.treatment.reduce((sum: number, id: string) => {
+          const treatObj = TREATMENTS_2023.find(t => t.id === id);
+          return sum + (treatObj ? treatObj.price : 0);
+        }, 0);
+        
+        let updatedInvoices = [...invoices];
+        if (existingId) {
+          // If we are editing, let's find an existing invoice for this patient on this clinical date
+          const existingInvIdx = invoices.findIndex(inv => inv.patient === patient.name && inv.date === entry.date);
+          if (existingInvIdx !== -1) {
+            updatedInvoices[existingInvIdx] = {
+              ...updatedInvoices[existingInvIdx],
+              amount: totalAmount
+            };
+          } else {
+            // No invoice found for this date, let's create a new one
+            const newInvoice: Invoice = {
+              id: `INV-${Date.now().toString().slice(-6)}`,
+              patient: patient.name,
+              date: entry.date,
+              amount: totalAmount,
+              status: 'unpaid',
+              method: '-'
+            };
+            updatedInvoices.push(newInvoice);
+          }
+        } else {
+          // New record, create a new invoice
+          const newInvoice: Invoice = {
+            id: `INV-${Date.now().toString().slice(-6)}`,
+            patient: patient.name,
+            date: entry.date,
+            amount: totalAmount,
+            status: 'unpaid',
+            method: '-'
+          };
+          updatedInvoices.push(newInvoice);
+        }
+        
+        setInvoices(updatedInvoices);
+        handleSyncData({ medicalRecords: updatedRecords, invoices: updatedInvoices });
+        showToast(existingId ? 'Rekam medis & Invoice diperbarui!' : 'Rekam medis disimpan & Invoice otomatis dibuat!', 'success');
+      } else {
+        handleSyncData({ medicalRecords: updatedRecords });
+        showToast(existingId ? 'Rekam medis berhasil diperbarui!' : 'Rekam medis berhasil disimpan!', 'success');
+      }
+    } else {
+      handleSyncData({ medicalRecords: updatedRecords });
+      showToast(existingId ? 'Rekam medis berhasil diperbarui!' : 'Rekam medis berhasil disimpan!', 'success');
+    }
   };
 
   if (!isAuthReady) {
@@ -5558,9 +6657,14 @@ export default function App() {
           selectedPatientId={selectedPatientId}
           onSelectPatient={setSelectedPatientId}
           onAddAppointment={handleAddAppointment}
+          medicalRecords={medicalRecords}
+          onSaveRecord={onAddMedicalRecord}
+          onDeleteRecord={onDeleteMedicalRecord}
           onSave={() => handleSave('Rekam Medis berhasil disimpan!')}
           user={user}
           users={users}
+          appointments={appointments}
+          invoices={invoices}
         />
       );
       case 'appointments': return (
@@ -5580,9 +6684,14 @@ export default function App() {
       case 'diagnosis-ref': return <DiagnosisReference onSave={() => handleSave('Pedoman Diagnosa berhasil disimpan!')} />;
       case 'billing': return <Billing invoices={invoices} setInvoices={setInvoices} onSave={() => handleSave('Data Billing berhasil disimpan!')} />;
       case 'education': return <Education onSave={() => handleSave('Data Edukasi berhasil disimpan!')} />;
-      case 'reports': return <Reports onSave={() => handleSave('Laporan berhasil diperbarui!')} />;
-      case 'security': return <Security onSave={() => handleSave('Pengaturan Keamanan berhasil disimpan!')} />;
-      case 'settings': return <Settings onSave={() => handleSave('Pengaturan berhasil disimpan!')} />;
+      case 'reports': return <Reports 
+        onSave={() => handleSave('Laporan berhasil diperbarui!')} 
+        patients={patients}
+        medicalRecords={medicalRecords}
+        invoices={invoices}
+      />;
+      case 'security': return <Security config={appConfig} setConfig={setAppConfig} onSave={() => handleSave('Pengaturan Keamanan berhasil disimpan!')} />;
+      case 'settings': return <Settings config={appConfig} setConfig={setAppConfig} onSave={() => handleSave('Pengaturan berhasil disimpan!')} />;
       default: return <Dashboard onNavigate={setCurrentPage} patients={patients} appointments={appointments} invoices={invoices} />;
     }
   };
